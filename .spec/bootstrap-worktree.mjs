@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 // Bootstraps a git worktree so `npm run build` / `npm run test` can run in it.
 // The repo's heavy, untracked dependencies (the devtools-frontend submodule
 // contents and node_modules) are shared from the main checkout via NTFS
@@ -17,10 +23,7 @@ const root = resolve(import.meta.dirname, '..');
 const worktree = process.argv[2];
 const unlink = process.argv.includes('--unlink');
 
-const shared = [
-  'third_party/devtools-frontend',
-  'node_modules',
-];
+const shared = ['third_party/devtools-frontend', 'node_modules'];
 const generatedLinks = [
   'build',
   'buildtools',
@@ -32,7 +35,9 @@ const generatedLinks = [
 ];
 
 if (!worktree) {
-  console.error('Usage: node .spec/bootstrap-worktree.mjs <worktree-path> [--unlink]');
+  console.error(
+    'Usage: node .spec/bootstrap-worktree.mjs <worktree-path> [--unlink]',
+  );
   process.exit(1);
 }
 
@@ -41,7 +46,10 @@ for (const rel of [...shared, ...generatedLinks]) {
   try {
     const stat = lstatSync(link);
     // Never delete a real directory in the shared targets.
-    if (stat.isSymbolicLink() || stat.isDirectory() && !existsSync(resolve(link, '.git'))) {
+    if (
+      stat.isSymbolicLink() ||
+      (stat.isDirectory() && !existsSync(resolve(link, '.git')))
+    ) {
       rmSync(link, {recursive: true, force: true});
     }
   } catch {
@@ -56,15 +64,22 @@ for (const rel of [...shared, ...generatedLinks]) {
       throw new Error(`Shared target missing: ${target}`);
     }
     // rmSync above removed the empty submodule placeholder directory.
-    symlinkSync(target, link, process.platform === 'win32' ? 'junction' : 'dir');
-    console.log(`linked ${rel}`);
+    symlinkSync(
+      target,
+      link,
+      process.platform === 'win32' ? 'junction' : 'dir',
+    );
+    console.error(`linked ${rel}`);
   }
 }
 
 if (!unlink) {
   execFileSync(
     process.execPath,
-    ['--experimental-strip-types', resolve(root, 'scripts/link-devtools-deps.ts')],
+    [
+      '--experimental-strip-types',
+      resolve(root, 'scripts/link-devtools-deps.ts'),
+    ],
     {cwd: worktree, stdio: 'inherit'},
   );
   execFileSync(
@@ -72,5 +87,5 @@ if (!unlink) {
     ['--experimental-strip-types', resolve(root, 'scripts/gn-gen.ts')],
     {cwd: worktree, stdio: 'inherit'},
   );
-  console.log('worktree ready');
+  console.error('worktree ready');
 }
