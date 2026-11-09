@@ -95,7 +95,7 @@ Evidence: merged via d266b2fe7b88497264125a516f5768c4ff8731cd; build passes (nod
 
 ## T3 — ScriptManager
 
-- **status**: open
+- **status**: closed
 - **Branch**: `ticket/T3-script-manager`
 - **Blocked by**: —
 - **Write scopes**: `src/ScriptManager.ts`, `tests/ScriptManager.test.ts`,
@@ -115,6 +115,7 @@ Evidence: merged via d266b2fe7b88497264125a516f5768c4ff8731cd; build passes (nod
   - Does not change `skipAllPauses` or enable a Debug Session.
   - Mock-based unit tests cover bounds, filters, regex, and export behavior.
   - `npm run build` and focused test pass.
+- **Evidence**: merged via `94a44cf`; build passes; ScriptManager focused tests 10/10 pass; exports return only path + counts/preview summaries.
 
 ---
 
