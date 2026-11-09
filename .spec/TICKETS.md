@@ -16,7 +16,7 @@ integration branch, and runs `npm run build`, the focused test, and
 
 ## T1 — DebuggerFormatter
 
-- **status**: open
+- **status**: closed
 - **Branch**: `ticket/T1-debugger-formatter`
 - **Blocked by**: —
 - **Write scopes**: `src/formatters/DebuggerFormatter.ts`,
@@ -30,6 +30,8 @@ integration branch, and runs `npm run build`, the focused test, and
     no new formatter duplicates it.
   - Unit test calls every public method and asserts truncation/bounds.
   - `npm run build` and the focused test pass.
+
+Evidence: merged via 7370fd9073aa8126dc6db306dfe69dd428458e8d; build + 19/19 formatter tests pass; formatter classes BreakpointFormatter, PausedStateFormatter, ScopeSummaryFormatter, EvaluationResultFormatter, SearchMatchFormatter exported.
 
 ---
 
