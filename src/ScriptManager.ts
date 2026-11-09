@@ -73,7 +73,7 @@ export interface ScriptPreviewLine {
 }
 
 export interface GetScriptSourceOptions {
-  scriptId: string;
+  scriptId: ScriptId;
   startLine?: number;
   endLine?: number;
   filePath?: string;
@@ -190,10 +190,13 @@ export class ScriptManager {
       options.endLine,
       previewLimit,
     );
-    const preview: ScriptPreviewLine[] = selected.lines.map((text, index) => ({
-      lineNumber: selected.startLine + index,
-      text: truncateText(text, MAX_LINE_LENGTH),
-    }));
+    const previewCount = options.filePath ? 5 : MAX_LINE_LENGTH;
+    const preview: ScriptPreviewLine[] = selected.lines
+      .slice(0, previewCount)
+      .map((text, index) => ({
+        lineNumber: selected.startLine + index,
+        text: truncateText(text, MAX_LINE_LENGTH),
+      }));
     if (options.filePath) {
       await fs.writeFile(
         options.filePath,
@@ -209,7 +212,8 @@ export class ScriptManager {
       totalLines: selected.totalLines,
       byteLength: selected.byteLength,
       lines: preview,
-      previewTruncated: selected.previewTruncated,
+      previewTruncated:
+        selected.previewTruncated || selected.lines.length > preview.length,
       ...(options.filePath ? {filePath: options.filePath} : {}),
     };
   }
@@ -290,7 +294,7 @@ export class ScriptManager {
     }
     return {
       query,
-      matches,
+      matches: options.filePath ? [] : matches,
       matchCount: matches.length,
       scannedScripts,
       truncated: matches.length >= maxMatches,

@@ -253,6 +253,17 @@ describe('ScriptManager', () => {
       query: 'answer',
       filePath: searchPath,
     });
+    const exportedMatches = [
+      {
+        scriptId: '1',
+        url: 'https://example.test/app.js',
+        lineNumber: 1,
+        columnNumber: 7,
+        matchText: 'answer',
+        lineContent: 'const answer = 42;',
+        contextLines: [],
+      },
+    ];
 
     sinon.assert.calledTwice(writeFile);
     sinon.assert.calledWithExactly(
@@ -264,7 +275,7 @@ describe('ScriptManager', () => {
     sinon.assert.calledWithExactly(
       writeFile.secondCall,
       searchPath,
-      `${JSON.stringify(searchResult.matches, null, 2)}\n`,
+      `${JSON.stringify(exportedMatches, null, 2)}\n`,
       'utf8',
     );
     assert.strictEqual(sourceResult.filePath, sourcePath);
@@ -274,7 +285,7 @@ describe('ScriptManager', () => {
     ]);
     assert.strictEqual(searchResult.filePath, searchPath);
     assert.strictEqual(searchResult.matchCount, 1);
-    assert.strictEqual(searchResult.matches.length, 1);
+    assert.deepStrictEqual(searchResult.matches, []);
   });
 
   it('preserves the underlying filesystem error on source export', async () => {
