@@ -136,7 +136,6 @@ interface BoundedLines {
  * changing pause settings or creating another CDP session.
  */
 export class ScriptManager {
-  #universe?: TargetUniverse;
   readonly #model: DebuggerModelLike;
 
   constructor(source: ScriptManagerSource) {
@@ -144,7 +143,6 @@ export class ScriptManager {
       this.#model = source;
       return;
     }
-    this.#universe = source;
     const model = source.target.model(DevTools.DebuggerModel);
     if (!model) {
       throw new Error('The DevTools debugger model is not available.');
@@ -300,11 +298,6 @@ export class ScriptManager {
     };
   }
 
-  /** Releases the retained universe reference; this class owns no resources. */
-  dispose(): void {
-    this.#universe = undefined;
-  }
-
   #requireScript(scriptId: string): ScriptLike {
     const script = this.#model.scriptForId(scriptId);
     if (!script) {
@@ -399,8 +392,7 @@ function createPattern(
 function isMinified(script: ScriptLike): boolean {
   const lineCount = script.endLine - script.lineOffset + 1;
   return (
-    lineCount > 0 &&
-    script.contentLength / lineCount > MINIFIED_LINE_THRESHOLD
+    lineCount > 0 && script.contentLength / lineCount > MINIFIED_LINE_THRESHOLD
   );
 }
 

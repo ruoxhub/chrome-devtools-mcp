@@ -12,7 +12,7 @@ import sinon from 'sinon';
 
 import type {DebuggerModelLike} from '../src/ScriptManager.js';
 import {ScriptManager} from '../src/ScriptManager.js';
-import {DevTools} from '../src/third_party/index.js';
+import type {DevTools} from '../src/third_party/index.js';
 import './setupDevTools.js';
 
 type ScriptId = DevTools.Protocol.Runtime.ScriptId;
@@ -68,16 +68,18 @@ function searchResponse(
 }
 
 function createManager(
-  scripts: ReturnType<typeof createMockScript>[],
+  scripts: Array<ReturnType<typeof createMockScript>>,
   options: {
     source?: SourceResponse;
     search?: SearchResponse | SearchResponse[];
   } = {},
 ): MockManager {
   const scriptsStub = sinon.stub().returns(scripts);
-  const scriptForId = sinon.stub().callsFake(
-    scriptId => scripts.find(script => script.scriptId === scriptId) ?? null,
-  );
+  const scriptForId = sinon
+    .stub()
+    .callsFake(
+      scriptId => scripts.find(script => script.scriptId === scriptId) ?? null,
+    );
   const getScriptSource = sinon.stub();
   getScriptSource.resolves(options.source ?? sourceResponse(''));
   const searchInContent = sinon.stub();
