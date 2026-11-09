@@ -68,7 +68,7 @@ Evidence: merged via d266b2fe7b88497264125a516f5768c4ff8731cd; build passes (nod
 
 ## T2b — DebuggerController: paused state and execution control
 
-- **status**: open
+- **status**: closed
 - **Branch**: `ticket/T2b-debugger-paused`
 - **Blocked by**: T2a
 - **Write scopes**: `src/DebuggerController.ts`,
@@ -90,6 +90,7 @@ Evidence: merged via d266b2fe7b88497264125a516f5768c4ff8731cd; build passes (nod
     waiter cleanup on disable, step not returning the previous snapshot, and
     evaluation/property bounds.
   - `npm run build` and focused test pass.
+- **Evidence**: merged via `e8faab5`; build passes; DebuggerController focused tests 21/21 pass; T2a + T2b cover the full controller.
 
 ---
 
