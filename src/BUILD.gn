@@ -57,6 +57,7 @@ ts_library("mcp_lib") {
 
   sources = [
     "BrowserManager.ts",
+    "DebuggerController.ts",
     "LogpointManager.ts",
     "McpContext.ts",
     "McpPage.ts",
