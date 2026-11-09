@@ -18,6 +18,7 @@ import type {McpPage} from '../McpPage.js';
 import type {Logpoint, LogpointOptions} from '../LogpointManager.js';
 import type {DevToolsCommentBridge} from '../devtools/DevToolsCommentBridge.js';
 import type {CssFormatterOptions} from '../formatters/CssFormatter.js';
+import type {StructuredScreencast} from '../formatters/ScreencastFormatter.js';
 import type {
   ContextFilterOptions,
   HeapSnapshotFormatOptions,
@@ -31,7 +32,6 @@ import {
   type InstallPWAOptions,
   type LaunchPWAOptions,
   type PWAState,
-  type ScreenRecorder,
   type ScreenRecording,
   type UninstallPWAOptions,
   type Viewport,
@@ -347,8 +347,14 @@ export type SupportedExtensions =
  * Only add methods used by tools/*.
  */
 export interface ScreenRecorderData {
-  recorder: ScreenRecorder | ScreenRecording;
+  recorder: ScreenRecording;
   filePath: string;
+  /** Epoch milliseconds when the recording started, used for `durationMs`. */
+  startedAt: number;
+  maxDurationMs: number;
+  timer?: ReturnType<typeof setTimeout>;
+  /** Set by the first stop so a timer and a tool call cannot stop twice. */
+  stopping?: Promise<StructuredScreencast>;
 }
 
 export type Context = Readonly<{

@@ -96,6 +96,7 @@ ts_library("mcp_lib") {
     "formatters/LogpointFormatter.ts",
     "formatters/NetworkFormatter.ts",
     "formatters/RemoteObjectFormatter.ts",
+    "formatters/ScreencastFormatter.ts",
     "formatters/SnapshotFormatter.ts",
     "formatters/WebAuthnFormatter.ts",
     "index.ts",

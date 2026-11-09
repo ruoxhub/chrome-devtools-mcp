@@ -34,6 +34,7 @@ import {McpContext} from '../src/McpContext.js';
 import {McpPage} from '../src/McpPage.js';
 import {McpResponse} from '../src/McpResponse.js';
 import {McpWorker, type WorkerType} from '../src/McpWorker.js';
+import type {ScreenRecorderData} from '../src/tools/ToolDefinition.js';
 import {TaskRunner, type TaskQueue} from '../src/utils/TaskRunner.js';
 import type {
   DuplicateStringGroup,
@@ -76,6 +77,7 @@ import {
   type Realm,
   type Result,
   type RunnerResult,
+  CdpScreenRecording,
 } from '../src/third_party/index.js';
 
 export type MockPuppeteerPage = sinon.SinonStubbedInstance<Page> & {
@@ -635,6 +637,18 @@ export function createHandlerMocks(options: Partial<ParsedArguments> = {}): {
   const response = createMockMcpResponse();
   const args = createMockParsedArguments(options);
   return {page, context, response, args};
+}
+
+export function createScreenRecorderData(
+  overrides: Partial<ScreenRecorderData> = {},
+): ScreenRecorderData {
+  return {
+    recorder: sinon.createStubInstance(CdpScreenRecording),
+    filePath: '/tmp/screencast.mp4',
+    startedAt: Date.now(),
+    maxDurationMs: 60_000,
+    ...overrides,
+  };
 }
 
 export function createMockRunnerResult(

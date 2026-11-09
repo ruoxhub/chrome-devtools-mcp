@@ -56,6 +56,7 @@ ts_library("tests") {
     "formatters/LogpointFormatter.test.ts",
     "formatters/NetworkFormatter.test.ts",
     "formatters/RemoteObjectFormatter.test.ts",
+    "formatters/ScreencastFormatter.test.ts",
     "formatters/WebAuthnFormatter.test.ts",
     "formatters/snapshotFormatter.test.ts",
     "index.test.ts",

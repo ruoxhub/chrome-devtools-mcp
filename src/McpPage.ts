@@ -902,8 +902,11 @@ export class McpPage implements ContextPage {
     this.#isRunningPerformanceTrace = false;
     this.disposeCommentBridge();
     if (this.#screenRecorder) {
-      const {recorder} = this.#screenRecorder;
+      const {recorder, timer} = this.#screenRecorder;
       this.#screenRecorder = null;
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
       void recorder.stop().catch(e => {
         logger?.('Failed to stop screencast recording on dispose', e);
       });

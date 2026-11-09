@@ -23,9 +23,9 @@ import {HeapSnapshotManager} from '../src/processors/HeapSnapshotManager.js';
 import {TaskRunner} from '../src/utils/TaskRunner.js';
 import {TextSnapshot} from '../src/TextSnapshot.js';
 import {
+  CdpScreenRecording,
   type Browser,
   type HTTPResponse,
-  ScreenRecorder,
   type Target,
   TargetType,
 } from '../src/third_party/index.js';
@@ -44,6 +44,7 @@ import {
   createMockPuppeteerPage,
   createMockPuppeteerTarget,
   createMockServerConfig,
+  createScreenRecorderData,
 } from './mocks.js';
 import {serverHooks, TestServer} from './server.js';
 import {loadTraceAsBuffer} from './trace-processing/fixtures/load.js';
@@ -1950,9 +1951,9 @@ describe('McpContext', () => {
     it('stops and clears the screencast recording', async () => {
       const context = await createMockContext();
       const page = context.getSelectedMcpPage();
-      const recorder = sinon.createStubInstance(ScreenRecorder);
+      const recorder = sinon.createStubInstance(CdpScreenRecording);
       recorder.stop.resolves();
-      page.setScreenRecorder({recorder, filePath: '/tmp/video.mp4'});
+      page.setScreenRecorder(createScreenRecorderData({recorder}));
 
       await context.releaseScreencasts();
 
@@ -1963,9 +1964,9 @@ describe('McpContext', () => {
     it('clears the screencast recording when stopping fails', async () => {
       const context = await createMockContext();
       const page = context.getSelectedMcpPage();
-      const recorder = sinon.createStubInstance(ScreenRecorder);
+      const recorder = sinon.createStubInstance(CdpScreenRecording);
       recorder.stop.rejects(new Error('ffmpeg error'));
-      page.setScreenRecorder({recorder, filePath: '/tmp/video.mp4'});
+      page.setScreenRecorder(createScreenRecorderData({recorder}));
 
       await context.releaseScreencasts();
 
