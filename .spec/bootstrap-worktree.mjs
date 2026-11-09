@@ -74,6 +74,23 @@ for (const rel of [...shared, ...generatedLinks]) {
 }
 
 if (!unlink) {
+  // The shared submodule junction contains a .git file with a relative gitdir
+  // that resolves outside the worktree, making plain `git status` fail there.
+  // Isolate the ignore settings in each worktree's own config.worktree.
+  execFileSync(
+    'git',
+    ['config', '--local', 'extensions.worktreeConfig', 'true'],
+    {cwd: root, stdio: 'inherit'},
+  );
+  for (const [key, value] of [
+    ['submodule.devtools-frontend.ignore', 'all'],
+    ['diff.ignoreSubmodules', 'all'],
+  ]) {
+    execFileSync('git', ['config', '--worktree', key, value], {
+      cwd: worktree,
+      stdio: 'inherit',
+    });
+  }
   execFileSync(
     process.execPath,
     [
