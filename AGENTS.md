@@ -211,3 +211,20 @@ Complete every item before you upload a PR or push a new revision.
       existing TSDoc.
 - [ ] Response text that depends on a condition prints only when the
       condition is true.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are GitHub issues in this repo, via the `gh` CLI. See
+`docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default canonical triage roles are used as-is. See
+`docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: root `GLOSSARY.md` and `docs/adr/`. See
+`docs/agents/domain.md`.
