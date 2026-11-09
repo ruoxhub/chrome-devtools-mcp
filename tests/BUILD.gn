@@ -23,6 +23,7 @@ ts_library("tests") {
     "McpResponse.test.ts",
     "McpServer.test.ts",
     "McpWorker.test.ts",
+    "ScriptManager.test.ts",
     "SlimMcpResponse.test.ts",
     "TextSnapshot.test.ts",
     "ToolHandler.test.ts",
