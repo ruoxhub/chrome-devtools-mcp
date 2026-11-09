@@ -37,7 +37,7 @@ Evidence: merged via 7370fd9073aa8126dc6db306dfe69dd428458e8d; build + 19/19 for
 
 ## T2a — DebuggerController: session and breakpoints
 
-- **status**: open
+- **status**: closed
 - **Branch**: `ticket/T2a-debugger-session`
 - **Blocked by**: —
 - **Write scopes**: `src/DebuggerController.ts`,
@@ -61,6 +61,8 @@ Evidence: merged via 7370fd9073aa8126dc6db306dfe69dd428458e8d; build + 19/19 for
     setting changes, listener add/remove, 1-based conversion, distinct
     breakpoint ownership, and idempotent dispose. No `as`/`any`/`!`.
   - `npm run build` and focused test pass.
+
+Evidence: merged via d266b2fe7b88497264125a516f5768c4ff8731cd; build passes (node scripts/ninja.ts exit 0) and focused DebuggerController test passes 10/10; T2b remains open for paused state and execution control (waitForPaused, snapshots, resume/step, evaluateOnCallFrame, getObjectProperties).
 
 ---
 
