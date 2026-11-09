@@ -16,7 +16,7 @@ integration branch, and runs `npm run build`, the focused test, and
 
 ## T1 — DebuggerFormatter
 
-- **status**: open
+- **status**: closed
 - **Branch**: `ticket/T1-debugger-formatter`
 - **Blocked by**: —
 - **Write scopes**: `src/formatters/DebuggerFormatter.ts`,
@@ -31,33 +31,62 @@ integration branch, and runs `npm run build`, the focused test, and
   - Unit test calls every public method and asserts truncation/bounds.
   - `npm run build` and the focused test pass.
 
+Evidence: merged via 7370fd9073aa8126dc6db306dfe69dd428458e8d; build + 19/19 formatter tests pass; formatter classes BreakpointFormatter, PausedStateFormatter, ScopeSummaryFormatter, EvaluationResultFormatter, SearchMatchFormatter exported.
+
 ---
 
-## T2 — DebuggerController
+## T2a — DebuggerController: session and breakpoints
 
 - **status**: open
-- **Branch**: `ticket/T2-debugger-controller`
+- **Branch**: `ticket/T2a-debugger-session`
 - **Blocked by**: —
-- **Write scopes**: `src/DebuggerController.ts`, `tests/DebuggerController.test.ts`,
-  `src/BUILD.gn`, `tests/BUILD.gn`
+- **Write scopes**: `src/DebuggerController.ts`,
+  `tests/DebuggerController.test.ts`, `src/BUILD.gn`, `tests/BUILD.gn`
+- **Context pointers**: `.spec/T2-FIXTURE-NOTES.md`, `.spec/WORKTREE-NOTES.md`,
+  ADR 0001, `docs/debugger-module-design.md`
 - **Acceptance**:
   - Owns Debug Session state for one page using the existing
     `TargetUniverse`/`DebuggerModel` passed in; never creates a second CDP
-    session.
-  - `enable()` sets `skipAllPauses=false`; `disable()` resumes if paused,
-    removes only its own breakpoints, restores `skipAllPauses=true`, and clears
-    listeners/waiters.
-  - Breakpoint set/list/remove with 1-based → 0-based conversion; keep own
-    breakpoint set distinct from logpoints.
-  - `waitForPaused(timeout)` is event-driven with bounded timeout; each pause
-    increments `generation`; resume/step/navigation disable invalidate stored
-    snapshots and reject stale `callFrameId`/`objectId`.
-  - Execution control: pause (with bounded wait), resume, step into/over/out.
-  - Inspection: paused state (scopes opt-in), evaluate on call frame, bounded
-    `Runtime.getProperties`.
-  - `dispose()` is idempotent and releases every listener/waiter.
-  - Core-class unit tests with mocked dependencies cover each branch; no real
-    browser and no `as`/`any`/`!`.
+    session and never calls `Debugger.enable`.
+  - `enable()` sets `skipAllPauses=false` via
+    `universe.settings.resolve(skipAllPausesSettingDescriptor)`; `disable()`
+    restores `skipAllPauses=true`, removes only its own breakpoints, and clears
+    listeners/waiters. `dispose()` is idempotent.
+  - Breakpoint `setBreakpoint` / `listBreakpoints` / `removeBreakpoint` with
+    1-based → 0-based conversion; own breakpoint set is distinct from logpoints.
+  - Listens on the existing session's `'Debugger.paused'` / `'Debugger.resumed'`
+    events (`DebuggerModel.Events` is not exported by mcp).
+  - Mock-based unit tests use a local explicitly named `UniverseLike`/`SettingsLike`
+    interface and `sinon.stub()` (see fixture notes), covering enable/disable
+    setting changes, listener add/remove, 1-based conversion, distinct
+    breakpoint ownership, and idempotent dispose. No `as`/`any`/`!`.
+  - `npm run build` and focused test pass.
+
+---
+
+## T2b — DebuggerController: paused state and execution control
+
+- **status**: open
+- **Branch**: `ticket/T2b-debugger-paused`
+- **Blocked by**: T2a
+- **Write scopes**: `src/DebuggerController.ts`,
+  `tests/DebuggerController.test.ts`, `src/BUILD.gn`, `tests/BUILD.gn`
+- **Context pointers**: `.spec/T2-FIXTURE-NOTES.md`, ADR 0002,
+  `docs/debugger-module-design.md`
+- **Acceptance**:
+  - `waitForPaused(timeout)` is event-driven, bounded (default 10 s, max 30 s),
+    and rejects all pending waiters on `disable()`/`dispose()`.
+  - Each `'Debugger.paused'` increments `generation` and stores a Paused
+    Snapshot; resume/step/navigation/disable invalidates stored snapshots and
+    rejects stale `callFrameId`/`objectId`.
+  - Execution control: `pause()` (bounded wait), `resume()`,
+    `stepInto/stepOver/stepOut` (wait for the next pause, never return an old
+    snapshot).
+  - Inspection: `getPausedState(includeScopes?)`, `evaluateOnCallFrame`,
+    bounded `getObjectProperties`.
+  - Tests cover generation increment, stale-id rejection, wait timeout,
+    waiter cleanup on disable, step not returning the previous snapshot, and
+    evaluation/property bounds.
   - `npm run build` and focused test pass.
 
 ---
@@ -91,7 +120,7 @@ integration branch, and runs `npm run build`, the focused test, and
 
 - **status**: open
 - **Branch**: `ticket/T4-debugger-tools`
-- **Blocked by**: T1, T2, T3
+- **Blocked by**: T1, T2a, T2b, T3
 - **Write scopes**: `src/tools/debugger.ts`, `src/tools/tools.ts`,
   `tests/tools/debugger.test.ts`, `src/BUILD.gn`, `tests/BUILD.gn`
 - **Acceptance**:
@@ -114,7 +143,7 @@ integration branch, and runs `npm run build`, the focused test, and
 
 - **status**: open
 - **Branch**: `ticket/T5-mcppage-integration`
-- **Blocked by**: T2, T3
+- **Blocked by**: T2a, T2b, T3
 - **Write scopes**: `src/McpPage.ts`, `tests/McpPage.test.ts`
 - **Acceptance**:
   - `McpPage` owns `DebuggerController` and `ScriptManager`, created lazily from
@@ -164,10 +193,14 @@ integration branch, and runs `npm run build`, the focused test, and
 ## Graph
 
 ```text
-T1 ─┐
-T2 ─┼─┬─ T5 ─┐
-T3 ─┘ └─ T4 ─┴─ T6 ─ T7
+T1 ───────────────┐
+T2a ─┬─ T2b ─┬────┼─ T4 ─┐
+     └────────┼─ T5 ───┴─ T6 ─ T7
+T3 ───────────┘
 ```
 
-Frontier at start: T1, T2, T3 (no blockers). T4 waits for T1/T2/T3;
-T5 waits for T2/T3; T6 waits for T4/T5; T7 waits for T6.
+Frontier after the split: T1 (closed), T2a, T3. T2b waits for T2a;
+T4 waits for T1/T2a/T2b/T3; T5 waits for T2a/T2b/T3; T6 waits for
+T4/T5; T7 waits for T6. T2 was split because a single fresh TDD context
+could not cover session, breakpoints, paused state, execution control and
+inspection within a reasonable time.

@@ -52,6 +52,7 @@ ts_library("tests") {
     "formatters/ConsoleFormatter.test.ts",
     "formatters/ConsoleFormatterGrouping.test.ts",
     "formatters/CssFormatter.test.ts",
+    "formatters/DebuggerFormatter.test.ts",
     "formatters/HeapSnapshotFormatter.test.ts",
     "formatters/IssueFormatter.test.ts",
     "formatters/LogpointFormatter.test.ts",

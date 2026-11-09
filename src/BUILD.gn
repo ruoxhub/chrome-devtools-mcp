@@ -92,6 +92,7 @@ ts_library("mcp_lib") {
     "formatters/CommentFormatter.ts",
     "formatters/ConsoleFormatter.ts",
     "formatters/CssFormatter.ts",
+    "formatters/DebuggerFormatter.ts",
     "formatters/HeapSnapshotFormatter.ts",
     "formatters/IssueFormatter.ts",
     "formatters/LogpointFormatter.ts",
