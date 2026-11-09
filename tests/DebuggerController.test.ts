@@ -34,17 +34,62 @@ export interface DebuggerAgentLike {
   invoke_setBreakpoint: sinon.SinonStub;
   // eslint-disable-next-line @typescript-eslint/naming-convention
   invoke_removeBreakpoint: sinon.SinonStub;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  invoke_pause: sinon.SinonStub;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  invoke_resume: sinon.SinonStub;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  invoke_stepInto: sinon.SinonStub;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  invoke_stepOver: sinon.SinonStub;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  invoke_stepOut: sinon.SinonStub;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  invoke_evaluateOnCallFrame: sinon.SinonStub;
+}
+
+export interface RuntimePropertyDescriptor {
+  name: string;
+  value?: {type: string; value?: number | string | boolean};
+}
+
+export interface RuntimeGetPropertiesResponse {
+  result: RuntimePropertyDescriptor[];
+  getError(): string | undefined;
+}
+
+export interface SessionLike {
+  on(event: string, listener: (event: unknown) => void): SessionLike;
+  off(event: string, listener: (event: unknown) => void): SessionLike;
+  send(
+    method: 'Runtime.getProperties',
+    params: {
+      objectId: string;
+      ownProperties?: boolean;
+      generatePreview?: boolean;
+    },
+  ): Promise<RuntimeGetPropertiesResponse>;
 }
 
 export interface ControllerFixture {
   controller: DebuggerController;
   session: sinon.SinonStubbedInstance<MockCDPSession>;
+  send: sinon.SinonStub<
+    Parameters<SessionLike['send']>,
+    Promise<RuntimeGetPropertiesResponse>
+  >;
   agent: DebuggerAgentLike;
   set: sinon.SinonStub;
 }
 
 function createFixture(): ControllerFixture {
   const session = createMockCDPSession();
+  const send = sinon.stub<
+    Parameters<SessionLike['send']>,
+    Promise<RuntimeGetPropertiesResponse>
+  >();
+  send.resolves({result: [], getError: () => undefined});
+  Object.defineProperty(session, 'send', {value: send});
   const set = sinon.stub();
   const settings: SettingsLike = {
     resolve: sinon.stub().returns({set}),
@@ -53,6 +98,12 @@ function createFixture(): ControllerFixture {
     invoke_setBreakpointByUrl: sinon.stub(),
     invoke_setBreakpoint: sinon.stub(),
     invoke_removeBreakpoint: sinon.stub().resolves({getError: () => undefined}),
+    invoke_pause: sinon.stub().resolves({getError: () => undefined}),
+    invoke_resume: sinon.stub().resolves({getError: () => undefined}),
+    invoke_stepInto: sinon.stub().resolves({getError: () => undefined}),
+    invoke_stepOver: sinon.stub().resolves({getError: () => undefined}),
+    invoke_stepOut: sinon.stub().resolves({getError: () => undefined}),
+    invoke_evaluateOnCallFrame: sinon.stub(),
   };
   const model = sinon.createStubInstance(DevTools.DebuggerModel);
   Object.defineProperty(model, 'agent', {value: agent});
@@ -64,6 +115,7 @@ function createFixture(): ControllerFixture {
   return {
     controller: new DebuggerController(devtools),
     session,
+    send,
     agent,
     set,
   };
@@ -96,7 +148,352 @@ function flush(): Promise<void> {
   return new Promise(resolve => setImmediate(resolve));
 }
 
+function pausedEvent(generation: number) {
+  return {
+    reason: 'breakpoint',
+    hitBreakpoints: [`bp-${generation}`],
+    callFrames: [
+      {
+        callFrameId: `frame-${generation}`,
+        functionName: `run${generation}`,
+        url: 'https://example.com/app.js',
+        location: {scriptId: 'script-1', lineNumber: 9, columnNumber: 4},
+        scopeChain: [
+          {
+            type: 'local',
+            object: {type: 'object', objectId: `scope-${generation}`},
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function emitSessionEvent(
+  session: ControllerFixture['session'],
+  event: 'Debugger.paused' | 'Debugger.resumed',
+  data?: unknown,
+): void {
+  const call =
+    event === 'Debugger.paused' ? session.on.firstCall : session.on.secondCall;
+  const handler = call.args[1];
+  handler(data);
+}
+
 describe('DebuggerController', () => {
+  it('stores a bounded 1-based Paused Snapshot for each generation', () => {
+    const {controller, session} = createFixture();
+    controller.enable();
+
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(1));
+    const first = controller.getPausedState({includeScopes: true});
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(2));
+    const second = controller.getPausedState({includeScopes: false});
+
+    assert.deepStrictEqual(first, {
+      generation: 1,
+      paused: true,
+      reason: 'breakpoint',
+      hitBreakpoints: ['bp-1'],
+      callFrames: [
+        {
+          callFrameId: 'frame-1',
+          functionName: 'run1',
+          url: 'https://example.com/app.js',
+          scriptId: 'script-1',
+          lineNumber: 10,
+          columnNumber: 5,
+          scopeChain: [{type: 'local', objectId: 'scope-1'}],
+        },
+      ],
+    });
+    assert.deepStrictEqual(second, {
+      generation: 2,
+      paused: true,
+      reason: 'breakpoint',
+      hitBreakpoints: ['bp-2'],
+      callFrames: [
+        {
+          callFrameId: 'frame-2',
+          functionName: 'run2',
+          url: 'https://example.com/app.js',
+          scriptId: 'script-1',
+          lineNumber: 10,
+          columnNumber: 5,
+        },
+      ],
+    });
+  });
+
+  it('resumed and navigation invalidate snapshots while generation remains', () => {
+    const {controller, session} = createFixture();
+    controller.enable();
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(1));
+
+    emitSessionEvent(session, 'Debugger.resumed');
+    assert.deepStrictEqual(controller.getPausedState(), {
+      generation: 1,
+      paused: false,
+      hitBreakpoints: [],
+      callFrames: [],
+    });
+
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(2));
+    assert.strictEqual(controller.getPausedState().generation, 2);
+    controller.invalidatePausedState();
+
+    assert.deepStrictEqual(controller.getPausedState(), {
+      generation: 2,
+      paused: false,
+      hitBreakpoints: [],
+      callFrames: [],
+    });
+  });
+
+  it('waitForPaused() resolves on the next event and bounds invalid timeouts', async () => {
+    const {controller, session} = createFixture();
+    controller.enable();
+
+    const waiting = controller.waitForPaused({timeout: 1});
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(1));
+
+    assert.strictEqual((await waiting).generation, 1);
+    await assert.rejects(
+      controller.waitForPaused({timeout: 31_001}),
+      /timeout=31001; exceeds maximum 30000ms/,
+    );
+    await assert.rejects(
+      controller.waitForPaused({timeout: 1}),
+      /Timed out waiting for a pause after 1ms/,
+    );
+  });
+
+  it('disable() and dispose() reject pending waiters and invalidate snapshots', async () => {
+    const disabled = createFixture();
+    disabled.controller.enable();
+    emitSessionEvent(disabled.session, 'Debugger.paused', pausedEvent(1));
+    const waitingOnDisable = disabled.controller.waitForPaused();
+    disabled.controller.disable();
+
+    await assert.rejects(waitingOnDisable, /Debug Session was disabled/);
+    assert.strictEqual(disabled.controller.getPausedState().paused, false);
+
+    const disposed = createFixture();
+    disposed.controller.enable();
+    emitSessionEvent(disposed.session, 'Debugger.paused', pausedEvent(1));
+    const waitingOnDispose = disposed.controller.waitForPaused();
+    disposed.controller.dispose();
+
+    await assert.rejects(waitingOnDispose, /Debug Session was disposed/);
+    assert.strictEqual(disposed.controller.getPausedState().paused, false);
+  });
+
+  it('pause() waits for the next pause and reports pending on timeout', async () => {
+    const {controller, session, agent} = createFixture();
+    controller.enable();
+
+    const pausing = controller.pause({timeout: 100});
+    await flush();
+    sinon.assert.calledOnceWithExactly(agent.invoke_pause);
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(1));
+
+    assert.deepStrictEqual(await pausing, {
+      status: 'paused',
+      snapshot: {
+        generation: 1,
+        paused: true,
+        reason: 'breakpoint',
+        hitBreakpoints: ['bp-1'],
+        callFrames: [
+          {
+            callFrameId: 'frame-1',
+            functionName: 'run1',
+            url: 'https://example.com/app.js',
+            scriptId: 'script-1',
+            lineNumber: 10,
+            columnNumber: 5,
+          },
+        ],
+      },
+    });
+    agent.invoke_pause.resetHistory();
+
+    assert.deepStrictEqual(await controller.pause({timeout: 1}), {
+      status: 'pending',
+      generation: 1,
+    });
+    sinon.assert.calledOnceWithExactly(agent.invoke_pause);
+  });
+
+  it('resume() invalidates the snapshot and sends Debugger.resume', async () => {
+    const {controller, session, agent} = createFixture();
+    controller.enable();
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(1));
+
+    await controller.resume();
+
+    sinon.assert.calledOnceWithExactly(agent.invoke_resume, {
+      terminateOnResume: false,
+    });
+    assert.strictEqual(controller.getPausedState().paused, false);
+    sinon.assert.notCalled(session.send);
+  });
+
+  it('step() invalidates the old generation and waits for the next pause', async () => {
+    const {controller, session, agent} = createFixture();
+    controller.enable();
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(1));
+
+    const stepping = controller.step('into', {timeout: 100});
+    await flush();
+    sinon.assert.calledOnceWithExactly(agent.invoke_stepInto, {
+      breakOnAsyncCall: false,
+    });
+    assert.strictEqual(controller.getPausedState().paused, false);
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(2));
+
+    assert.deepStrictEqual(await stepping, {
+      status: 'paused',
+      snapshot: {
+        generation: 2,
+        paused: true,
+        reason: 'breakpoint',
+        hitBreakpoints: ['bp-2'],
+        callFrames: [
+          {
+            callFrameId: 'frame-2',
+            functionName: 'run2',
+            url: 'https://example.com/app.js',
+            scriptId: 'script-1',
+            lineNumber: 10,
+            columnNumber: 5,
+          },
+        ],
+      },
+    });
+  });
+
+  it('step() maps over and out to their CDP commands', async () => {
+    const {controller, session, agent} = createFixture();
+    controller.enable();
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(1));
+
+    const over = controller.step('over', {timeout: 100});
+    await flush();
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(2));
+    await over;
+    sinon.assert.calledOnceWithExactly(agent.invoke_stepOver, {});
+    sinon.assert.notCalled(agent.invoke_stepOut);
+
+    const out = controller.step('out', {timeout: 100});
+    await flush();
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(3));
+    await out;
+    sinon.assert.calledOnceWithExactly(agent.invoke_stepOut);
+  });
+
+  it('step() rejects stale snapshots on timeout', async () => {
+    const {controller, session} = createFixture();
+    controller.enable();
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(1));
+
+    await assert.rejects(
+      controller.step('over', {timeout: 1}),
+      /Timed out waiting for a pause after 1ms/,
+    );
+  });
+
+  it('evaluateOnCallFrame() passes options and rejects stale frame IDs', async () => {
+    const {controller, session, agent} = createFixture();
+    controller.enable();
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(1));
+    agent.invoke_evaluateOnCallFrame.resolves({
+      result: {type: 'number', value: 7},
+      getError: () => undefined,
+    });
+
+    assert.deepStrictEqual(
+      await controller.evaluateOnCallFrame({
+        callFrameId: 'frame-1',
+        expression: 'answer',
+        returnByValue: true,
+        generatePreview: true,
+        throwOnSideEffect: true,
+        timeout: 500,
+        scopeNumber: 1,
+      }),
+      {result: {type: 'number', value: 7}},
+    );
+    sinon.assert.calledOnceWithExactly(agent.invoke_evaluateOnCallFrame, {
+      callFrameId: 'frame-1',
+      expression: 'answer',
+      returnByValue: true,
+      generatePreview: true,
+      throwOnSideEffect: true,
+      timeout: 500,
+      scopeNumber: 1,
+    });
+
+    controller.invalidatePausedState();
+    await assert.rejects(
+      controller.evaluateOnCallFrame({
+        callFrameId: 'frame-1',
+        expression: 'answer',
+      }),
+      /callFrameId frame-1 is stale for generation 1/,
+    );
+  });
+
+  it('getObjectProperties() bounds results and rejects stale object IDs', async () => {
+    const {controller, session, send} = createFixture();
+    controller.enable();
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(1));
+    send.resolves({
+      result: [
+        {name: 'one', value: {type: 'number', value: 1}},
+        {name: 'two', value: {type: 'number', value: 2}},
+        {name: 'three', value: {type: 'number', value: 3}},
+      ],
+      getError: () => undefined,
+    });
+
+    assert.deepStrictEqual(
+      await controller.getObjectProperties({
+        objectId: 'scope-1',
+        maxProperties: 2,
+      }),
+      {
+        objectId: 'scope-1',
+        generation: 1,
+        properties: [
+          {name: 'one', value: {type: 'number', value: 1}},
+          {name: 'two', value: {type: 'number', value: 2}},
+        ],
+        truncated: true,
+        depth: 1,
+      },
+    );
+    sinon.assert.calledOnceWithExactly(send, 'Runtime.getProperties', {
+      objectId: 'scope-1',
+      ownProperties: true,
+      generatePreview: false,
+    });
+
+    controller.invalidatePausedState();
+    await assert.rejects(
+      controller.getObjectProperties({objectId: 'scope-1'}),
+      /objectId scope-1 is stale for generation 1/,
+    );
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(1));
+    await assert.rejects(
+      controller.getObjectProperties({
+        objectId: 'scope-1',
+        depth: 2,
+      }),
+      /Invalid depth=2/,
+    );
+  });
+
   it('enable() sets skipAllPauses to false once', () => {
     const {controller, set} = createFixture();
 
