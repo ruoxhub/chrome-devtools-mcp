@@ -62,6 +62,7 @@ ts_library("mcp_lib") {
     "McpPage.ts",
     "McpResponse.ts",
     "McpWorker.ts",
+    "ScriptManager.ts",
     "SlimMcpResponse.ts",
     "TextSnapshot.ts",
     "ToolHandler.ts",
