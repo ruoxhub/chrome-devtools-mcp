@@ -16,6 +16,7 @@ ts_library("tests") {
   ]
 
   sources = [
+    "DebuggerController.test.ts",
     "LogpointManager.test.ts",
     "McpContext.test.ts",
     "McpPage.test.ts",
