@@ -29,3 +29,13 @@ junctions/symlinks without deleting the shared targets, then
 Verified end to end: bootstrap → `git status` exit 0 → `node scripts/ninja.ts`
 exit 0. Fixes are committed as `c631541` (lint) and `70f6a16` (submodule
 isolation).
+
+## DevTools exports
+
+`third_party/devtools-frontend/mcp/mcp.ts` does not export `Script` or
+`TextUtils` namespaces. Do not import devtools-frontend internals directly from
+`src/` or `tests/`. Use the exported `DevTools.DebuggerModel` (via
+`third_party/index.ts`), its `scripts()` and `agent.invoke_*` methods, and
+`DevTools.Protocol` types. Tests can describe the fields a class actually
+reads with a local explicitly named interface instead of stubbing the real
+`Script` class.
