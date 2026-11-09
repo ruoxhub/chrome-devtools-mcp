@@ -17,6 +17,7 @@ const MAX_LINE_LENGTH = 500;
 const DEFAULT_MAX_MATCHES = 100;
 const MAX_CONTEXT_LINES = 20;
 const MINIFIED_LINE_THRESHOLD = 10_000;
+const EXPORT_PREVIEW_LINES = 5;
 
 type SearchMatch = DevTools.Protocol.Debugger.SearchMatch;
 type ScriptId = DevTools.Protocol.Runtime.ScriptId;
@@ -113,14 +114,15 @@ export interface SearchInScriptsOptions {
   filePath?: string;
 }
 
-export interface ScriptSearchResult {
+interface ScriptSearchSummary {
   query: string;
-  matches: ScriptSearchMatch[];
   matchCount: number;
   scannedScripts: number;
   truncated: boolean;
-  filePath?: string;
 }
+
+export type ScriptSearchResult = ScriptSearchSummary &
+  ({filePath: string} | {matches: ScriptSearchMatch[]; filePath?: undefined});
 
 interface BoundedLines {
   lines: string[];
@@ -190,7 +192,9 @@ export class ScriptManager {
       options.endLine,
       previewLimit,
     );
-    const previewCount = options.filePath ? 5 : MAX_LINE_LENGTH;
+    const previewCount = options.filePath
+      ? EXPORT_PREVIEW_LINES
+      : MAX_LINE_LENGTH;
     const preview: ScriptPreviewLine[] = selected.lines
       .slice(0, previewCount)
       .map((text, index) => ({
@@ -285,21 +289,21 @@ export class ScriptManager {
       }
     }
 
+    const summary: ScriptSearchSummary = {
+      query,
+      matchCount: matches.length,
+      scannedScripts,
+      truncated: matches.length >= maxMatches,
+    };
     if (options.filePath) {
       await fs.writeFile(
         options.filePath,
         `${JSON.stringify(matches, null, 2)}\n`,
         'utf8',
       );
+      return {...summary, filePath: options.filePath};
     }
-    return {
-      query,
-      matches: options.filePath ? [] : matches,
-      matchCount: matches.length,
-      scannedScripts,
-      truncated: matches.length >= maxMatches,
-      ...(options.filePath ? {filePath: options.filePath} : {}),
-    };
+    return {...summary, matches};
   }
 
   #requireScript(scriptId: string): ScriptLike {

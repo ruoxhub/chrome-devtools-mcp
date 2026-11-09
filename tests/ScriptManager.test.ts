@@ -10,7 +10,11 @@ import {describe, it} from 'node:test';
 
 import sinon from 'sinon';
 
-import type {DebuggerModelLike} from '../src/ScriptManager.js';
+import type {
+  DebuggerModelLike,
+  ScriptSearchMatch,
+  ScriptSearchResult,
+} from '../src/ScriptManager.js';
 import {ScriptManager} from '../src/ScriptManager.js';
 import type {DevTools} from '../src/third_party/index.js';
 import './setupDevTools.js';
@@ -65,6 +69,11 @@ function searchResponse(
   result: DevTools.Protocol.Debugger.SearchMatch[],
 ): SearchResponse {
   return {result, getError: () => undefined};
+}
+
+function scriptSearchMatches(result: ScriptSearchResult): ScriptSearchMatch[] {
+  assert.ok('matches' in result);
+  return result.matches;
 }
 
 function createManager(
@@ -285,7 +294,7 @@ describe('ScriptManager', () => {
     ]);
     assert.strictEqual(searchResult.filePath, searchPath);
     assert.strictEqual(searchResult.matchCount, 1);
-    assert.deepStrictEqual(searchResult.matches, []);
+    assert.strictEqual('matches' in searchResult, false);
   });
 
   it('preserves the underlying filesystem error on source export', async () => {
@@ -335,7 +344,7 @@ describe('ScriptManager', () => {
       caseSensitive: false,
       isRegex: false,
     });
-    assert.deepStrictEqual(result.matches, [
+    assert.deepStrictEqual(scriptSearchMatches(result), [
       {
         scriptId: '1',
         url: 'https://example.test/app.js',
@@ -387,11 +396,11 @@ describe('ScriptManager', () => {
       isRegex: true,
     });
     assert.deepStrictEqual(
-      caseSensitive.matches.map(match => match.columnNumber),
+      scriptSearchMatches(caseSensitive).map(match => match.columnNumber),
       [7],
     );
     assert.deepStrictEqual(
-      regex.matches.map(match => match.matchText),
+      scriptSearchMatches(regex).map(match => match.matchText),
       ['beta42', 'beta7'],
     );
   });
