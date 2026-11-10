@@ -166,7 +166,7 @@ Evidence: merged via d266b2fe7b88497264125a516f5768c4ff8731cd; build passes (nod
 
 ## T6 — Generated docs and real-Chrome integration tests
 
-- **status**: open
+- **status**: closed
 - **Branch**: `ticket/T6-integration-and-docs`
 - **Blocked by**: T4, T5
 - **Write scopes**: `docs/tool-reference.md`, `docs/slim-tool-reference.md`,
@@ -179,6 +179,7 @@ Evidence: merged via d266b2fe7b88497264125a516f5768c4ff8731cd; build passes (nod
     step/resume work, script search and source export are correct.
   - Fewer than a handful of slow browser runs; no fixed sleeps.
   - `npm run gen`, `npm run format`, and the full `npm run test` pass.
+- **Evidence**: merged via T6 merge; npm run gen regenerated 14 tools under Debugging (24 total); real-Chrome integration test 1/1 pass; core unit tests 158/158 pass.
 
 ---
 
