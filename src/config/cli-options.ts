@@ -313,6 +313,326 @@ export const commands: Commands = {
       },
     },
   },
+  debugger_disable: {
+    description:
+      'Disable the Debug Session, resume a paused page, remove this module’s breakpoints, and restore the page’s original non-pausing behavior while leaving logpoints intact.',
+    category: 'Debugging',
+    args: {
+      pageId: {
+        name: 'pageId',
+        type: 'number',
+        description: 'Targets a specific page by ID.',
+        required: true,
+        positional: true,
+      },
+    },
+  },
+  debugger_evaluate: {
+    description:
+      'Evaluate a JavaScript expression on a paused call frame and format its result or exception.',
+    category: 'Debugging',
+    args: {
+      pageId: {
+        name: 'pageId',
+        type: 'number',
+        description: 'Targets a specific page by ID.',
+        required: true,
+        positional: true,
+      },
+      callFrameId: {
+        name: 'callFrameId',
+        type: 'string',
+        description: 'The callFrameId from the current paused state.',
+        required: true,
+        positional: true,
+      },
+      expression: {
+        name: 'expression',
+        type: 'string',
+        description: 'JavaScript expression to evaluate on the call frame.',
+        required: true,
+        positional: true,
+      },
+      returnByValue: {
+        name: 'returnByValue',
+        type: 'boolean',
+        description: 'Return the result by value.',
+        required: false,
+        positional: false,
+      },
+      generatePreview: {
+        name: 'generatePreview',
+        type: 'boolean',
+        description: 'Generate a preview for object results.',
+        required: false,
+        positional: false,
+      },
+      throwOnSideEffect: {
+        name: 'throwOnSideEffect',
+        type: 'boolean',
+        description: 'Throw if evaluation would produce a side effect.',
+        required: false,
+        positional: false,
+      },
+      timeout: {
+        name: 'timeout',
+        type: 'integer',
+        description: 'Optional evaluation timeout in milliseconds.',
+        required: false,
+        positional: false,
+      },
+    },
+  },
+  debugger_get_object_properties: {
+    description:
+      'Read a bounded set of properties from an object ID belonging to the current paused snapshot.',
+    category: 'Debugging',
+    args: {
+      pageId: {
+        name: 'pageId',
+        type: 'number',
+        description: 'Targets a specific page by ID.',
+        required: true,
+        positional: true,
+      },
+      objectId: {
+        name: 'objectId',
+        type: 'string',
+        description: 'The objectId from the current paused scope.',
+        required: true,
+        positional: true,
+      },
+      ownProperties: {
+        name: 'ownProperties',
+        type: 'boolean',
+        description: 'Whether to request only own properties from CDP.',
+        required: false,
+        positional: false,
+      },
+      generatePreview: {
+        name: 'generatePreview',
+        type: 'boolean',
+        description:
+          'Whether CDP should generate previews for returned properties.',
+        required: false,
+        positional: false,
+      },
+      maxProperties: {
+        name: 'maxProperties',
+        type: 'integer',
+        description: 'Maximum properties to return; capped at 1000.',
+        required: false,
+        positional: false,
+      },
+      depth: {
+        name: 'depth',
+        type: 'integer',
+        description: 'Property depth, either 0 or 1.',
+        required: false,
+        positional: false,
+      },
+    },
+  },
+  debugger_get_paused_state: {
+    description:
+      'Read the current paused state, including reason, hit breakpoints, call frames, and optionally scope summaries.',
+    category: 'Debugging',
+    args: {
+      pageId: {
+        name: 'pageId',
+        type: 'number',
+        description: 'Targets a specific page by ID.',
+        required: true,
+        positional: true,
+      },
+      includeScopes: {
+        name: 'includeScopes',
+        type: 'boolean',
+        description:
+          'Include scope identifiers and properties in the paused snapshot.',
+        required: false,
+        positional: false,
+      },
+    },
+  },
+  debugger_list_breakpoints: {
+    description:
+      'List only the breakpoints owned by this debugger module, with their requested and resolved 1-based locations.',
+    category: 'Debugging',
+    args: {
+      pageId: {
+        name: 'pageId',
+        type: 'number',
+        description: 'Targets a specific page by ID.',
+        required: true,
+        positional: true,
+      },
+    },
+  },
+  debugger_pause: {
+    description:
+      'Pause JavaScript execution and wait up to the timeout for the next pause; a pending result can be awaited with debugger_wait_for_paused.',
+    category: 'Debugging',
+    args: {
+      pageId: {
+        name: 'pageId',
+        type: 'number',
+        description: 'Targets a specific page by ID.',
+        required: true,
+        positional: true,
+      },
+      timeout: {
+        name: 'timeout',
+        type: 'integer',
+        description:
+          'Maximum wait in milliseconds; defaults to 10000 and is capped at 30000.',
+        required: false,
+        positional: false,
+        default: 10000,
+      },
+    },
+  },
+  debugger_remove_breakpoint: {
+    description:
+      'Remove one breakpoint owned by this debugger module by its breakpointId.',
+    category: 'Debugging',
+    args: {
+      pageId: {
+        name: 'pageId',
+        type: 'number',
+        description: 'Targets a specific page by ID.',
+        required: true,
+        positional: true,
+      },
+      breakpointId: {
+        name: 'breakpointId',
+        type: 'string',
+        description: 'The breakpointId returned by debugger_set_breakpoint.',
+        required: true,
+        positional: true,
+      },
+    },
+  },
+  debugger_resume: {
+    description:
+      'Resume JavaScript execution and invalidate the current paused snapshot and its identifiers.',
+    category: 'Debugging',
+    args: {
+      pageId: {
+        name: 'pageId',
+        type: 'number',
+        description: 'Targets a specific page by ID.',
+        required: true,
+        positional: true,
+      },
+    },
+  },
+  debugger_set_breakpoint: {
+    description:
+      'Set a pausing breakpoint at a 1-based URL or script location, optionally evaluating a JavaScript condition, and report its resolved locations.',
+    category: 'Debugging',
+    args: {
+      pageId: {
+        name: 'pageId',
+        type: 'number',
+        description: 'Targets a specific page by ID.',
+        required: true,
+        positional: true,
+      },
+      url: {
+        name: 'url',
+        type: 'string',
+        description:
+          'Script URL for the breakpoint. Provide exactly one of url or scriptId.',
+        required: false,
+        positional: false,
+      },
+      scriptId: {
+        name: 'scriptId',
+        type: 'string',
+        description:
+          'CDP script ID for the breakpoint. Provide exactly one of url or scriptId.',
+        required: false,
+        positional: false,
+      },
+      lineNumber: {
+        name: 'lineNumber',
+        type: 'integer',
+        description: '1-based line number for the breakpoint.',
+        required: true,
+        positional: true,
+      },
+      columnNumber: {
+        name: 'columnNumber',
+        type: 'integer',
+        description: 'Optional 1-based column number for the breakpoint.',
+        required: false,
+        positional: false,
+      },
+      condition: {
+        name: 'condition',
+        type: 'string',
+        description:
+          'Optional JavaScript expression evaluated when the breakpoint is reached.',
+        required: false,
+        positional: false,
+      },
+    },
+  },
+  debugger_step: {
+    description:
+      'Step into, over, or out of the current paused JavaScript frame and wait for the next pause.',
+    category: 'Debugging',
+    args: {
+      pageId: {
+        name: 'pageId',
+        type: 'number',
+        description: 'Targets a specific page by ID.',
+        required: true,
+        positional: true,
+      },
+      direction: {
+        name: 'direction',
+        type: 'string',
+        description: 'Direction to step from the current paused frame.',
+        required: true,
+        positional: true,
+        enum: ['into', 'over', 'out'],
+      },
+      timeout: {
+        name: 'timeout',
+        type: 'integer',
+        description:
+          'Maximum wait in milliseconds; defaults to 10000 and is capped at 30000.',
+        required: false,
+        positional: false,
+        default: 10000,
+      },
+    },
+  },
+  debugger_wait_for_paused: {
+    description:
+      'Wait without holding the page queue for the next JavaScript pause and report its reason, hit breakpoints, and call frames.',
+    category: 'Debugging',
+    args: {
+      pageId: {
+        name: 'pageId',
+        type: 'number',
+        description: 'Targets a specific page by ID.',
+        required: true,
+        positional: true,
+      },
+      timeout: {
+        name: 'timeout',
+        type: 'integer',
+        description:
+          'Maximum wait in milliseconds; defaults to 10000 and is capped at 30000.',
+        required: false,
+        positional: false,
+        default: 10000,
+      },
+    },
+  },
   drag: {
     description: 'Drag an element onto another element',
     category: 'Input automation',
@@ -1159,6 +1479,50 @@ export const commands: Commands = {
       },
     },
   },
+  get_script_source: {
+    description:
+      'Read a bounded preview of parsed script source using 1-based line numbers, optionally exporting the selected lines to a filesystem path.',
+    category: 'Debugging',
+    args: {
+      pageId: {
+        name: 'pageId',
+        type: 'number',
+        description: 'Targets a specific page by ID.',
+        required: true,
+        positional: true,
+      },
+      scriptId: {
+        name: 'scriptId',
+        type: 'string',
+        description: 'CDP script ID.',
+        required: true,
+        positional: true,
+      },
+      startLine: {
+        name: 'startLine',
+        type: 'integer',
+        description: 'First 1-based source line; defaults to 1.',
+        required: false,
+        positional: false,
+      },
+      endLine: {
+        name: 'endLine',
+        type: 'integer',
+        description:
+          'Last 1-based source line; defaults to the end of the script.',
+        required: false,
+        positional: false,
+      },
+      filePath: {
+        name: 'filePath',
+        type: 'string',
+        description:
+          'Absolute or working-directory-relative path for exporting the selected source.',
+        required: false,
+        positional: false,
+      },
+    },
+  },
   handle_dialog: {
     description:
       'If a browser dialog was opened, use this command to handle it',
@@ -1462,6 +1826,35 @@ export const commands: Commands = {
       'Get a list of pages including extension service workers open in the browser.',
     category: 'Navigation automation',
     args: {},
+  },
+  list_scripts: {
+    description:
+      'List bounded metadata for parsed scripts, optionally filtered by URL, without enabling pausing mode.',
+    category: 'Debugging',
+    args: {
+      pageId: {
+        name: 'pageId',
+        type: 'number',
+        description: 'Targets a specific page by ID.',
+        required: true,
+        positional: true,
+      },
+      urlFilter: {
+        name: 'urlFilter',
+        type: 'string',
+        description:
+          'Case-insensitive URL substring or URL path suffix filter.',
+        required: false,
+        positional: false,
+      },
+      maxScripts: {
+        name: 'maxScripts',
+        type: 'integer',
+        description: 'Maximum scripts to return; capped at 1000.',
+        required: false,
+        positional: false,
+      },
+    },
   },
   list_webmcp_tools: {
     description:
@@ -1874,6 +2267,86 @@ export const commands: Commands = {
         description: 'Targets a specific page by ID.',
         required: true,
         positional: true,
+      },
+    },
+  },
+  search_in_scripts: {
+    description:
+      'Search parsed script sources with bounded matches and locally derived 1-based columns, optionally exporting full matches to a filesystem path.',
+    category: 'Debugging',
+    args: {
+      pageId: {
+        name: 'pageId',
+        type: 'number',
+        description: 'Targets a specific page by ID.',
+        required: true,
+        positional: true,
+      },
+      query: {
+        name: 'query',
+        type: 'string',
+        description: 'Literal text or regular expression.',
+        required: true,
+        positional: true,
+      },
+      caseSensitive: {
+        name: 'caseSensitive',
+        type: 'boolean',
+        description: 'Make the search case-sensitive.',
+        required: false,
+        positional: false,
+      },
+      isRegex: {
+        name: 'isRegex',
+        type: 'boolean',
+        description: 'Interpret query as a regular expression.',
+        required: false,
+        positional: false,
+      },
+      urlFilter: {
+        name: 'urlFilter',
+        type: 'string',
+        description:
+          'Case-insensitive URL substring or URL path suffix filter.',
+        required: false,
+        positional: false,
+      },
+      contextLines: {
+        name: 'contextLines',
+        type: 'integer',
+        description:
+          'Number of surrounding source lines to include; capped at 20.',
+        required: false,
+        positional: false,
+      },
+      maxMatches: {
+        name: 'maxMatches',
+        type: 'integer',
+        description: 'Maximum matches to return; capped at 1000.',
+        required: false,
+        positional: false,
+      },
+      maxScripts: {
+        name: 'maxScripts',
+        type: 'integer',
+        description: 'Maximum scripts to scan; capped at 1000.',
+        required: false,
+        positional: false,
+      },
+      excludeMinified: {
+        name: 'excludeMinified',
+        type: 'boolean',
+        description: 'Skip scripts that appear minified.',
+        required: false,
+        positional: false,
+      },
+      filePath: {
+        name: 'filePath',
+        type: 'string',
+        description:
+          'Absolute or working-directory-relative path for exporting full JSON matches.',
+        required: false,
+        positional: false,
       },
     },
   },
