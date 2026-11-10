@@ -57,6 +57,7 @@ ts_library("mcp_lib") {
 
   sources = [
     "BrowserManager.ts",
+    "DebuggerController.ts",
     "HookManager.ts",
     "HookScripts.ts",
     "LogpointManager.ts",
@@ -64,6 +65,7 @@ ts_library("mcp_lib") {
     "McpPage.ts",
     "McpResponse.ts",
     "McpWorker.ts",
+    "ScriptManager.ts",
     "SlimMcpResponse.ts",
     "TextSnapshot.ts",
     "ToolHandler.ts",
@@ -93,6 +95,7 @@ ts_library("mcp_lib") {
     "formatters/CommentFormatter.ts",
     "formatters/ConsoleFormatter.ts",
     "formatters/CssFormatter.ts",
+    "formatters/DebuggerFormatter.ts",
     "formatters/HeapSnapshotFormatter.ts",
     "formatters/IssueFormatter.ts",
     "formatters/LogpointFormatter.ts",
@@ -120,6 +123,7 @@ ts_library("mcp_lib") {
     "tools/comments.ts",
     "tools/console.ts",
     "tools/css.ts",
+    "tools/debugger.ts",
     "tools/emulation.ts",
     "tools/extensions.ts",
     "tools/hooks.ts",

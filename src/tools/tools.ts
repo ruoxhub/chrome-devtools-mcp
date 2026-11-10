@@ -10,6 +10,7 @@ import type {YargsOptions} from '../third_party/index.js';
 import * as commentsTools from './comments.js';
 import * as consoleTools from './console.js';
 import * as cssTools from './css.js';
+import * as debuggerTools from './debugger.js';
 import * as emulationTools from './emulation.js';
 import * as extensionTools from './extensions.js';
 import * as hookTools from './hooks.js';
@@ -36,6 +37,7 @@ export const createTools = (args: ParsedArguments): AnyToolDefinition[] => {
     ...Object.values(commentsTools),
     ...Object.values(consoleTools),
     ...Object.values(cssTools),
+    ...Object.values(debuggerTools),
     ...Object.values(emulationTools),
     ...Object.values(extensionTools),
     ...Object.values(hookTools),

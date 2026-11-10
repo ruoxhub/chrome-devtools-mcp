@@ -16,6 +16,8 @@ ts_library("tests") {
   ]
 
   sources = [
+    "DebuggerController.test.ts",
+    "DebuggerIntegration.test.ts",
     "HookManager.test.ts",
     "HookScripts.test.ts",
     "LogpointManager.test.ts",
@@ -24,6 +26,7 @@ ts_library("tests") {
     "McpResponse.test.ts",
     "McpServer.test.ts",
     "McpWorker.test.ts",
+    "ScriptManager.test.ts",
     "SlimMcpResponse.test.ts",
     "TextSnapshot.test.ts",
     "ToolHandler.test.ts",
@@ -49,11 +52,13 @@ ts_library("tests") {
     "e2e/chrome-devtools-performance.test.ts",
     "e2e/chrome-devtools-start-stop.test.ts",
     "e2e/chrome-devtools-status.test.ts",
+    "e2e/debugger.test.ts",
     "e2e/telemetry.test.ts",
     "formatters/CommentFormatter.test.ts",
     "formatters/ConsoleFormatter.test.ts",
     "formatters/ConsoleFormatterGrouping.test.ts",
     "formatters/CssFormatter.test.ts",
+    "formatters/DebuggerFormatter.test.ts",
     "formatters/HeapSnapshotFormatter.test.ts",
     "formatters/IssueFormatter.test.ts",
     "formatters/LogpointFormatter.test.ts",
@@ -83,6 +88,7 @@ ts_library("tests") {
     "tools/comments.test.ts",
     "tools/console.test.ts",
     "tools/css.test.ts",
+    "tools/debugger.test.ts",
     "tools/emulation.test.ts",
     "tools/extensions.test.ts",
     "tools/hooks.test.ts",

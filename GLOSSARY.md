@@ -37,3 +37,28 @@ _Avoid_: Hook record, callback, notification
 An expression a page logs every time a given source line executes, set at a
 script location and resolved through source maps.
 _Avoid_: Breakpoint, console breakpoint
+
+**Debug Session**:
+The period during which pausing is enabled for one page, ending when debugging
+is explicitly disabled or the page is closed.
+_Avoid_: Saved session, session file
+
+**Breakpoint**:
+A script location where JavaScript execution pauses when reached. Unlike a
+logpoint, it does not merely record a value and continue.
+_Avoid_: Pause point, tracepoint
+
+**Paused State**:
+The condition of a page whose JavaScript execution has stopped, making its
+current call frames and scopes available for inspection.
+_Avoid_: Debugger state, stopped state
+
+**Paused Snapshot**:
+An MCP-visible representation of the current Paused State, valid only until
+execution resumes or the page's execution state changes.
+_Avoid_: Paused event, saved pause
+
+**Script**:
+JavaScript source parsed in a page, identified by a script ID and usually
+associated with a URL.
+_Avoid_: Source file, module

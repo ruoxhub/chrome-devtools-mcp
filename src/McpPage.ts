@@ -5,6 +5,19 @@
  */
 
 import type {ReadonlyServerConfig} from './config/ServerConfig.js';
+import {
+  type BreakpointRecord,
+  DebuggerController,
+  type EvaluationResultLike,
+  type EvaluateOnCallFrameOptions,
+  type GetObjectPropertiesOptions,
+  type ObjectPropertiesView,
+  type PausedSnapshot,
+  type PausedStateView,
+  type PauseResult,
+  type PendingPauseResult,
+  type SetBreakpointOptions,
+} from './DebuggerController.js';
 import {DevToolsCommentBridge} from './devtools/DevToolsCommentBridge.js';
 import {
   createTargetUniverse,
@@ -24,6 +37,15 @@ import {
 } from './HookManager.js';
 import type {Logpoint, LogpointOptions} from './LogpointManager.js';
 import {LogpointManager} from './LogpointManager.js';
+import {
+  type GetScriptSourceOptions,
+  type ListScriptsOptions,
+  ScriptManager,
+  type ScriptListResult,
+  type ScriptSearchResult,
+  type ScriptSourceResult,
+  type SearchInScriptsOptions,
+} from './ScriptManager.js';
 import {TextSnapshot} from './TextSnapshot.js';
 import {
   type Locator,
@@ -215,12 +237,18 @@ export class McpPage implements ContextPage {
   // Logpoints, created on first use.
   #logpointManager?: LogpointManager;
 
+  // Debugger and script inspection, created on first use from the universe.
+  #debuggerController?: DebuggerController;
+  #scriptManager?: ScriptManager;
   // Hooks, created on first use.
   #hookManager?: HookManager;
 
   // Dialog
   #dialog?: Dialog;
   #dialogHandler: (dialog: Dialog) => void;
+  #frameNavigatedHandler = (): void => {
+    this.#debuggerController?.invalidatePausedState();
+  };
 
   // Screencast
   #screenRecorder: ScreenRecorderData | null = null;
@@ -377,6 +405,7 @@ export class McpPage implements ContextPage {
       }
       this.#pptrPage = page;
       page.on('dialog', this.#dialogHandler);
+      page.on('framenavigated', this.#frameNavigatedHandler);
       this.#networkCollector = new NetworkCollector(page, {
         maxNavigationSaved: this.#config.resolved.maxNavigationSaved,
       });
@@ -464,6 +493,105 @@ export class McpPage implements ContextPage {
       this.#logpointManager = new LogpointManager(devtoolsUniverse);
     }
     return this.#logpointManager.setLogpoints(logpoints);
+  }
+
+  #getDebuggerController(): DebuggerController {
+    const devtoolsUniverse = this.devtoolsUniverse;
+    if (!devtoolsUniverse) {
+      throw new Error(
+        `DevTools universe is not available for page ${this.id ?? '?'}.`,
+      );
+    }
+    if (!this.#debuggerController) {
+      this.#debuggerController = new DebuggerController(devtoolsUniverse);
+    }
+    return this.#debuggerController;
+  }
+
+  #getScriptManager(): ScriptManager {
+    const devtoolsUniverse = this.devtoolsUniverse;
+    if (!devtoolsUniverse) {
+      throw new Error(
+        `DevTools universe is not available for page ${this.id ?? '?'}.`,
+      );
+    }
+    if (!this.#scriptManager) {
+      this.#scriptManager = new ScriptManager(devtoolsUniverse);
+    }
+    return this.#scriptManager;
+  }
+
+  setBreakpoint(options: SetBreakpointOptions): Promise<BreakpointRecord> {
+    const controller = this.#getDebuggerController();
+    controller.enable();
+    return controller.setBreakpoint(options);
+  }
+
+  listBreakpoints(): readonly BreakpointRecord[] {
+    return this.#getDebuggerController().listBreakpoints();
+  }
+
+  removeBreakpoint(breakpointId: string): Promise<boolean> {
+    return this.#getDebuggerController().removeBreakpoint(breakpointId);
+  }
+
+  waitForPaused(options?: {timeout?: number}): Promise<PausedSnapshot> {
+    return this.#getDebuggerController().waitForPaused(options);
+  }
+
+  pause(options?: {
+    timeout?: number;
+  }): Promise<PauseResult | PendingPauseResult> {
+    const controller = this.#getDebuggerController();
+    controller.enable();
+    return controller.pause(options);
+  }
+
+  resume(): Promise<void> {
+    return this.#getDebuggerController().resume();
+  }
+
+  step(
+    direction: 'into' | 'over' | 'out',
+    options?: {timeout?: number},
+  ): Promise<PauseResult> {
+    return this.#getDebuggerController().step(direction, options);
+  }
+
+  disable(): void {
+    this.#getDebuggerController().disable();
+  }
+
+  getPausedState(options?: {includeScopes?: boolean}): PausedStateView {
+    return this.#getDebuggerController().getPausedState(options);
+  }
+
+  evaluateOnCallFrame(
+    options: EvaluateOnCallFrameOptions,
+  ): Promise<EvaluationResultLike> {
+    return this.#getDebuggerController().evaluateOnCallFrame(options);
+  }
+
+  getObjectProperties(
+    options: GetObjectPropertiesOptions,
+  ): Promise<ObjectPropertiesView> {
+    return this.#getDebuggerController().getObjectProperties(options);
+  }
+
+  listScripts(options?: ListScriptsOptions): ScriptListResult {
+    return this.#getScriptManager().listScripts(options);
+  }
+
+  getScriptSource(
+    options: GetScriptSourceOptions,
+  ): Promise<ScriptSourceResult> {
+    return this.#getScriptManager().getScriptSource(options);
+  }
+
+  searchInScripts(
+    options: SearchInScriptsOptions,
+  ): Promise<ScriptSearchResult> {
+    return this.#getScriptManager().searchInScripts(options);
   }
 
   /**
@@ -943,10 +1071,14 @@ export class McpPage implements ContextPage {
       });
     }
     this.#pptrPage?.off('dialog', this.#dialogHandler);
+    this.#pptrPage?.off('framenavigated', this.#frameNavigatedHandler);
     this.#networkCollector?.dispose();
     this.#consoleCollector?.dispose();
     this.#logpointManager?.dispose();
     this.#logpointManager = undefined;
+    this.#debuggerController?.dispose();
+    this.#debuggerController = undefined;
+    this.#scriptManager = undefined;
     this.#hookManager?.dispose();
     this.#hookManager = undefined;
     const devtoolsUniverse = this.#devtoolsUniverse;

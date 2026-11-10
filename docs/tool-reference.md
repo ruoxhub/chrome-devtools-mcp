@@ -30,16 +30,30 @@
 - **[Network](#network)** (2 tools)
   - [`get_network_request`](#get_network_request)
   - [`list_network_requests`](#list_network_requests)
-- **[Debugging](#debugging)** (12 tools)
+- **[Debugging](#debugging)** (26 tools)
   - [`create_hook`](#create_hook)
+  - [`debugger_disable`](#debugger_disable)
+  - [`debugger_evaluate`](#debugger_evaluate)
+  - [`debugger_get_object_properties`](#debugger_get_object_properties)
+  - [`debugger_get_paused_state`](#debugger_get_paused_state)
+  - [`debugger_list_breakpoints`](#debugger_list_breakpoints)
+  - [`debugger_pause`](#debugger_pause)
+  - [`debugger_remove_breakpoint`](#debugger_remove_breakpoint)
+  - [`debugger_resume`](#debugger_resume)
+  - [`debugger_set_breakpoint`](#debugger_set_breakpoint)
+  - [`debugger_step`](#debugger_step)
+  - [`debugger_wait_for_paused`](#debugger_wait_for_paused)
   - [`evaluate_script`](#evaluate_script)
   - [`get_console_message`](#get_console_message)
   - [`get_css_styles`](#get_css_styles)
+  - [`get_script_source`](#get_script_source)
   - [`lighthouse_audit`](#lighthouse_audit)
   - [`list_console_messages`](#list_console_messages)
+  - [`list_scripts`](#list_scripts)
   - [`remove_hook`](#remove_hook)
   - [`screencast_start`](#screencast_start)
   - [`screencast_stop`](#screencast_stop)
+  - [`search_in_scripts`](#search_in_scripts)
   - [`set_logpoints`](#set_logpoints)
   - [`take_screenshot`](#take_screenshot)
   - [`take_snapshot`](#take_snapshot)
@@ -412,6 +426,138 @@ A hook applies to the current document, and is lost on navigation or reload unle
 
 ---
 
+### `debugger_disable`
+
+**Description:** Disable the Debug Session, resume a paused page, remove this module’s breakpoints, and restore the page’s original non-pausing behavior while leaving logpoints intact.
+
+**Parameters:**
+
+- **pageId** (number) **(required)**: Targets a specific page by ID.
+
+---
+
+### `debugger_evaluate`
+
+**Description:** Evaluate a JavaScript expression on a paused call frame and format its result or exception.
+
+**Parameters:**
+
+- **callFrameId** (string) **(required)**: The callFrameId from the current paused state.
+- **expression** (string) **(required)**: JavaScript expression to evaluate on the call frame.
+- **pageId** (number) **(required)**: Targets a specific page by ID.
+- **generatePreview** (boolean) _(optional)_: Generate a preview for object results.
+- **returnByValue** (boolean) _(optional)_: Return the result by value.
+- **throwOnSideEffect** (boolean) _(optional)_: Throw if evaluation would produce a side effect.
+- **timeout** (integer) _(optional)_: Optional evaluation timeout in milliseconds.
+
+---
+
+### `debugger_get_object_properties`
+
+**Description:** Read a bounded set of properties from an object ID belonging to the current paused snapshot.
+
+**Parameters:**
+
+- **objectId** (string) **(required)**: The objectId from the current paused scope.
+- **pageId** (number) **(required)**: Targets a specific page by ID.
+- **depth** (integer) _(optional)_: Property depth, either 0 or 1.
+- **generatePreview** (boolean) _(optional)_: Whether CDP should generate previews for returned properties.
+- **maxProperties** (integer) _(optional)_: Maximum properties to return; capped at 1000.
+- **ownProperties** (boolean) _(optional)_: Whether to request only own properties from CDP.
+
+---
+
+### `debugger_get_paused_state`
+
+**Description:** Read the current paused state, including reason, hit breakpoints, call frames, and optionally scope summaries.
+
+**Parameters:**
+
+- **pageId** (number) **(required)**: Targets a specific page by ID.
+- **includeScopes** (boolean) _(optional)_: Include scope identifiers and properties in the paused snapshot.
+
+---
+
+### `debugger_list_breakpoints`
+
+**Description:** List only the breakpoints owned by this debugger module, with their requested and resolved 1-based locations.
+
+**Parameters:**
+
+- **pageId** (number) **(required)**: Targets a specific page by ID.
+
+---
+
+### `debugger_pause`
+
+**Description:** Pause JavaScript execution and wait up to the timeout for the next pause; a pending result can be awaited with [`debugger_wait_for_paused`](#debugger_wait_for_paused).
+
+**Parameters:**
+
+- **pageId** (number) **(required)**: Targets a specific page by ID.
+- **timeout** (integer) _(optional)_: Maximum wait in milliseconds; defaults to 10000 and is capped at 30000.
+
+---
+
+### `debugger_remove_breakpoint`
+
+**Description:** Remove one breakpoint owned by this debugger module by its breakpointId.
+
+**Parameters:**
+
+- **breakpointId** (string) **(required)**: The breakpointId returned by [`debugger_set_breakpoint`](#debugger_set_breakpoint).
+- **pageId** (number) **(required)**: Targets a specific page by ID.
+
+---
+
+### `debugger_resume`
+
+**Description:** Resume JavaScript execution and invalidate the current paused snapshot and its identifiers.
+
+**Parameters:**
+
+- **pageId** (number) **(required)**: Targets a specific page by ID.
+
+---
+
+### `debugger_set_breakpoint`
+
+**Description:** Set a pausing breakpoint at a 1-based URL or script location, optionally evaluating a JavaScript condition, and report its resolved locations.
+
+**Parameters:**
+
+- **lineNumber** (integer) **(required)**: 1-based line number for the breakpoint.
+- **pageId** (number) **(required)**: Targets a specific page by ID.
+- **columnNumber** (integer) _(optional)_: Optional 1-based column number for the breakpoint.
+- **condition** (string) _(optional)_: Optional JavaScript expression evaluated when the breakpoint is reached.
+- **scriptId** (string) _(optional)_: CDP script ID for the breakpoint. Provide exactly one of url or scriptId.
+- **url** (string) _(optional)_: Script URL for the breakpoint. Provide exactly one of url or scriptId.
+
+---
+
+### `debugger_step`
+
+**Description:** Step into, over, or out of the current paused JavaScript frame and wait for the next pause.
+
+**Parameters:**
+
+- **direction** (enum: "into", "over", "out") **(required)**: Direction to step from the current paused frame.
+- **pageId** (number) **(required)**: Targets a specific page by ID.
+- **timeout** (integer) _(optional)_: Maximum wait in milliseconds; defaults to 10000 and is capped at 30000.
+
+---
+
+### `debugger_wait_for_paused`
+
+**Description:** Wait without holding the page queue for the next JavaScript pause and report its reason, hit breakpoints, and call frames.
+
+**Parameters:**
+
+- **pageId** (number) **(required)**: Targets a specific page by ID.
+- **timeout** (integer) _(optional)_: Maximum wait in milliseconds; defaults to 10000 and is capped at 30000.
+
+---
+
 ### `evaluate_script`
 
 **Description:** Evaluate JavaScript inside the target page or service worker. The source can be provided inline or loaded from a local file. Returns the response as JSON, so returned values have to be JSON-serializable.
@@ -460,6 +606,20 @@ Results are paginated (10 rules per page by default); use pageIdx to page throug
 
 ---
 
+### `get_script_source`
+
+**Description:** Read a bounded preview of parsed script source using 1-based line numbers, optionally exporting the selected lines to a filesystem path.
+
+**Parameters:**
+
+- **pageId** (number) **(required)**: Targets a specific page by ID.
+- **scriptId** (string) **(required)**: CDP script ID.
+- **endLine** (integer) _(optional)_: Last 1-based source line; defaults to the end of the script.
+- **filePath** (string) _(optional)_: Absolute or working-directory-relative path for exporting the selected source.
+- **startLine** (integer) _(optional)_: First 1-based source line; defaults to 1.
+
+---
+
 ### `lighthouse_audit`
 
 **Description:** Get Lighthouse scores, failing audits, and the DOM nodes they flag for accessibility, SEO, best practices, and agentic browsing. Full reports are saved to disk. This excludes performance. For performance audits, run [`performance_start_trace`](#performance_start_trace)
@@ -486,6 +646,18 @@ Results are paginated (10 rules per page by default); use pageIdx to page throug
 - **pageSize** (integer) _(optional)_: Maximum number of messages to return. When omitted, returns all messages.
 - **serviceWorkerId** (string) _(optional)_: Filter messages by the service worker ID shown by [`list_pages`](#list_pages) (sw-N).
 - **types** (array) _(optional)_: Filter messages to only return messages of the specified resource types. When omitted or empty, returns all messages.
+
+---
+
+### `list_scripts`
+
+**Description:** List bounded metadata for parsed scripts, optionally filtered by URL, without enabling pausing mode.
+
+**Parameters:**
+
+- **pageId** (number) **(required)**: Targets a specific page by ID.
+- **maxScripts** (integer) _(optional)_: Maximum scripts to return; capped at 1000.
+- **urlFilter** (string) _(optional)_: Case-insensitive URL substring or URL path suffix filter.
 
 ---
 
@@ -520,6 +692,25 @@ Results are paginated (10 rules per page by default); use pageIdx to page throug
 **Parameters:**
 
 - **pageId** (number) **(required)**: Targets a specific page by ID.
+
+---
+
+### `search_in_scripts`
+
+**Description:** Search parsed script sources with bounded matches and locally derived 1-based columns, optionally exporting full matches to a filesystem path.
+
+**Parameters:**
+
+- **pageId** (number) **(required)**: Targets a specific page by ID.
+- **query** (string) **(required)**: Literal text or regular expression.
+- **caseSensitive** (boolean) _(optional)_: Make the search case-sensitive.
+- **contextLines** (integer) _(optional)_: Number of surrounding source lines to include; capped at 20.
+- **excludeMinified** (boolean) _(optional)_: Skip scripts that appear minified.
+- **filePath** (string) _(optional)_: Absolute or working-directory-relative path for exporting full JSON matches.
+- **isRegex** (boolean) _(optional)_: Interpret query as a regular expression.
+- **maxMatches** (integer) _(optional)_: Maximum matches to return; capped at 1000.
+- **maxScripts** (integer) _(optional)_: Maximum scripts to scan; capped at 1000.
+- **urlFilter** (string) _(optional)_: Case-insensitive URL substring or URL path suffix filter.
 
 ---
 

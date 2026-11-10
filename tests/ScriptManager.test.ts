@@ -1,0 +1,699 @@
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import assert from 'node:assert';
+import fs from 'node:fs/promises';
+import {describe, it} from 'node:test';
+import {fileURLToPath, pathToFileURL} from 'node:url';
+
+import sinon from 'sinon';
+
+import type {
+  DebuggerModelLike,
+  ScriptSearchMatch,
+  ScriptSearchResult,
+} from '../src/ScriptManager.js';
+import {ScriptManager} from '../src/ScriptManager.js';
+import type {DevTools} from '../src/third_party/index.js';
+import './setupDevTools.js';
+
+type ScriptId = DevTools.Protocol.Runtime.ScriptId;
+type SourceResponse = DevTools.Protocol.Debugger.GetScriptSourceResponse;
+type SearchResponse = DevTools.Protocol.Debugger.SearchInContentResponse;
+
+interface MockScriptOptions {
+  scriptId: ScriptId;
+  url: string;
+  length?: number;
+  sourceMapURL?: string;
+  isModule?: boolean | null;
+  startLine?: number;
+  startColumn?: number;
+  endLine?: number;
+  endColumn?: number;
+}
+
+interface MockManager {
+  manager: ScriptManager;
+  model: {scripts: sinon.SinonStub};
+  getScriptSource: sinon.SinonStub;
+  searchInContent: sinon.SinonStub;
+}
+
+function createScriptId(value: string): ScriptId;
+function createScriptId(value: string): string {
+  return value;
+}
+
+function createMockScript(options: MockScriptOptions) {
+  return {
+    scriptId: options.scriptId,
+    sourceURL: options.url,
+    contentLength: options.length ?? 0,
+    ...(options.sourceMapURL ? {sourceMapURL: options.sourceMapURL} : {}),
+    isModule: options.isModule ?? null,
+    lineOffset: options.startLine ?? 0,
+    columnOffset: options.startColumn ?? 0,
+    endLine: options.endLine ?? 0,
+    endColumn: options.endColumn ?? 0,
+  };
+}
+
+function sourceResponse(scriptSource: string): SourceResponse {
+  return {scriptSource, getError: () => undefined};
+}
+
+function searchResponse(
+  result: DevTools.Protocol.Debugger.SearchMatch[],
+): SearchResponse {
+  return {result, getError: () => undefined};
+}
+
+function scriptSearchMatches(result: ScriptSearchResult): ScriptSearchMatch[] {
+  assert.ok('matches' in result);
+  return result.matches;
+}
+
+function createManager(
+  scripts: Array<ReturnType<typeof createMockScript>>,
+  options: {
+    source?: SourceResponse;
+    search?: SearchResponse | SearchResponse[];
+  } = {},
+): MockManager {
+  const scriptsStub = sinon.stub().returns(scripts);
+  const scriptForId = sinon
+    .stub()
+    .callsFake(
+      scriptId => scripts.find(script => script.scriptId === scriptId) ?? null,
+    );
+  const getScriptSource = sinon.stub();
+  getScriptSource.resolves(options.source ?? sourceResponse(''));
+  const searchInContent = sinon.stub();
+  if (Array.isArray(options.search)) {
+    for (const response of options.search) {
+      searchInContent.onCall(searchInContent.callCount).resolves(response);
+    }
+  }
+  searchInContent.resolves(
+    Array.isArray(options.search)
+      ? searchResponse([])
+      : (options.search ?? searchResponse([])),
+  );
+  const typedModel: DebuggerModelLike = {
+    scripts: scriptsStub,
+    scriptForId,
+    agent: {
+      invoke_getScriptSource: getScriptSource,
+      invoke_searchInContent: searchInContent,
+    },
+  };
+  return {
+    manager: new ScriptManager(typedModel),
+    model: {scripts: scriptsStub},
+    getScriptSource,
+    searchInContent,
+  };
+}
+
+describe('ScriptManager', () => {
+  it('lists bounded script summaries filtered by a URL suffix', async () => {
+    const app = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/assets/app.js',
+      length: 120,
+      sourceMapURL: 'app.js.map',
+      isModule: true,
+      startLine: 4,
+      startColumn: 2,
+      endLine: 8,
+      endColumn: 6,
+    });
+    const other = createMockScript({
+      scriptId: createScriptId('2'),
+      url: 'https://example.test/vendor.js',
+      length: 900,
+    });
+    const later = createMockScript({
+      scriptId: createScriptId('3'),
+      url: 'https://example.test/assets/app.js?v=2',
+      length: 130,
+    });
+    const {manager, model} = createManager([app, other, later]);
+
+    const result = await manager.listScripts({
+      urlFilter: 'assets/App.JS',
+      maxScripts: 1,
+    });
+
+    sinon.assert.calledOnceWithExactly(model.scripts);
+    assert.deepStrictEqual(result, {
+      scripts: [
+        {
+          scriptId: '1',
+          url: 'https://example.test/assets/app.js',
+          length: 120,
+          sourceMapURL: 'app.js.map',
+          isModule: true,
+          startLine: 5,
+          startColumn: 3,
+          endLine: 9,
+          endColumn: 7,
+        },
+      ],
+      total: 2,
+      truncated: true,
+    });
+  });
+
+  it('returns a 1-based line range and a bounded default preview', async () => {
+    const source = Array.from({length: 120}, (_, i) => `line ${i + 1}`).join(
+      '\n',
+    );
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: source.length,
+      endLine: 119,
+    });
+    const {manager, getScriptSource} = createManager([script], {
+      source: sourceResponse(source),
+    });
+
+    const ranged = await manager.getScriptSource({
+      scriptId: createScriptId('1'),
+      startLine: 3,
+      endLine: 5,
+    });
+    const preview = await manager.getScriptSource({
+      scriptId: createScriptId('1'),
+    });
+
+    sinon.assert.calledTwice(getScriptSource);
+    sinon.assert.calledWithExactly(getScriptSource.firstCall, {scriptId: '1'});
+    sinon.assert.calledWithExactly(getScriptSource.secondCall, {scriptId: '1'});
+    assert.deepStrictEqual(ranged, {
+      scriptId: '1',
+      url: 'https://example.test/app.js',
+      startLine: 3,
+      endLine: 5,
+      totalLines: 120,
+      byteLength: Buffer.byteLength(source, 'utf8'),
+      lines: [
+        {lineNumber: 3, text: 'line 3'},
+        {lineNumber: 4, text: 'line 4'},
+        {lineNumber: 5, text: 'line 5'},
+      ],
+      previewTruncated: false,
+    });
+    assert.strictEqual(preview.lines.length, 100);
+    assert.strictEqual(preview.endLine, 100);
+    assert.strictEqual(preview.previewTruncated, true);
+  });
+
+  it('truncates long preview lines without splitting graphemes', async () => {
+    const emoji = '👩‍💻';
+    const source = 'a'.repeat(499) + emoji + 'tail';
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: source.length,
+      endLine: 0,
+    });
+    const {manager} = createManager([script], {
+      source: sourceResponse(source),
+    });
+
+    const result = await manager.getScriptSource({
+      scriptId: createScriptId('1'),
+    });
+
+    assert.strictEqual(result.lines.length, 1);
+    assert.strictEqual(result.lines[0]?.text, 'a'.repeat(499) + '...');
+    assert.doesNotMatch(JSON.stringify(result.lines[0]?.text), /\\ud83d/i);
+  });
+
+  it('exports source and search results while returning only summaries', async () => {
+    const source = 'const answer = 42;\nconst other = 1;';
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: source.length,
+      endLine: 1,
+    });
+    const search = searchResponse([
+      {lineNumber: 0, lineContent: 'const answer = 42;'},
+    ]);
+    const {manager} = createManager([script], {
+      source: sourceResponse(source),
+      search,
+    });
+    const sourcePath = 'D:/tmp/script-source.js';
+    const searchPath = 'D:/tmp/script-search.json';
+    const writeFile = sinon.stub(fs, 'writeFile').resolves();
+
+    const sourceResult = await manager.getScriptSource({
+      scriptId: createScriptId('1'),
+      filePath: sourcePath,
+    });
+    const searchResult = await manager.searchInScripts({
+      query: 'answer',
+      filePath: searchPath,
+    });
+    const exportedMatches = [
+      {
+        scriptId: '1',
+        url: 'https://example.test/app.js',
+        lineNumber: 1,
+        columnNumber: 7,
+        matchText: 'answer',
+        lineContent: 'const answer = 42;',
+        contextLines: [],
+      },
+    ];
+
+    sinon.assert.calledTwice(writeFile);
+    sinon.assert.calledWithExactly(
+      writeFile.firstCall,
+      sourcePath,
+      `${source}\n`,
+      'utf8',
+    );
+    sinon.assert.calledWithExactly(
+      writeFile.secondCall,
+      searchPath,
+      `${JSON.stringify(exportedMatches, null, 2)}\n`,
+      'utf8',
+    );
+    assert.strictEqual(sourceResult.filePath, sourcePath);
+    assert.deepStrictEqual(sourceResult.lines, [
+      {lineNumber: 1, text: 'const answer = 42;'},
+      {lineNumber: 2, text: 'const other = 1;'},
+    ]);
+    assert.strictEqual(searchResult.filePath, searchPath);
+    assert.strictEqual(searchResult.matchCount, 1);
+    assert.strictEqual('matches' in searchResult, false);
+  });
+
+  it('exports the full source and keeps the response bounded', async () => {
+    const source = Array.from({length: 120}, (_, i) => `line ${i + 1}`).join(
+      '\n',
+    );
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: source.length,
+      endLine: 119,
+    });
+    const {manager} = createManager([script], {
+      source: sourceResponse(source),
+    });
+    const writeFile = sinon.stub(fs, 'writeFile').resolves();
+
+    const result = await manager.getScriptSource({
+      scriptId: createScriptId('1'),
+      filePath: 'D:/tmp/full-source.js',
+    });
+
+    sinon.assert.calledOnceWithExactly(
+      writeFile,
+      'D:/tmp/full-source.js',
+      `${source}\n`,
+      'utf8',
+    );
+    assert.strictEqual(result.filePath, 'D:/tmp/full-source.js');
+    assert.strictEqual(result.startLine, 1);
+    assert.strictEqual(result.endLine, 120);
+    assert.strictEqual(result.totalLines, 120);
+    assert.strictEqual(result.byteLength, Buffer.byteLength(source, 'utf8'));
+    assert.deepStrictEqual(result.lines, [
+      {lineNumber: 1, text: 'line 1'},
+      {lineNumber: 2, text: 'line 2'},
+      {lineNumber: 3, text: 'line 3'},
+      {lineNumber: 4, text: 'line 4'},
+      {lineNumber: 5, text: 'line 5'},
+    ]);
+    assert.strictEqual(result.previewTruncated, true);
+  });
+
+  it('exports only the exact selected line range beyond the preview bound', async () => {
+    const source = Array.from({length: 1_010}, (_, i) => `line ${i + 1}`).join(
+      '\n',
+    );
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: source.length,
+      endLine: 1_009,
+    });
+    const {manager} = createManager([script], {
+      source: sourceResponse(source),
+    });
+    const selected = source.split('\n').slice(1_004, 1_006);
+    const writeFile = sinon.stub(fs, 'writeFile').resolves();
+
+    const result = await manager.getScriptSource({
+      scriptId: createScriptId('1'),
+      startLine: 1_005,
+      endLine: 1_006,
+      filePath: 'D:/tmp/selected-source.js',
+    });
+
+    sinon.assert.calledOnceWithExactly(
+      writeFile,
+      'D:/tmp/selected-source.js',
+      `${selected.join('\n')}\n`,
+      'utf8',
+    );
+    assert.strictEqual(result.startLine, 1_005);
+    assert.strictEqual(result.endLine, 1_006);
+    assert.strictEqual(result.totalLines, 1_010);
+    assert.deepStrictEqual(result.lines, [
+      {lineNumber: 1_005, text: 'line 1005'},
+      {lineNumber: 1_006, text: 'line 1006'},
+    ]);
+    assert.strictEqual(result.previewTruncated, false);
+  });
+
+  it('converts file: URLs to filesystem paths before writing exports', async () => {
+    const source = 'const answer = 42;';
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: source.length,
+      endLine: 0,
+    });
+    const {manager} = createManager([script], {
+      source: sourceResponse(source),
+      search: searchResponse([]),
+    });
+    const path = 'D:/tmp/script-export.js';
+    const fileUrl = pathToFileURL(path).href;
+    const writeFile = sinon.stub(fs, 'writeFile').resolves();
+
+    await manager.getScriptSource({
+      scriptId: createScriptId('1'),
+      filePath: fileUrl,
+    });
+    await manager.searchInScripts({
+      query: 'answer',
+      filePath: fileUrl,
+    });
+
+    sinon.assert.calledTwice(writeFile);
+    const expectedPath = fileURLToPath(fileUrl);
+    sinon.assert.calledWithExactly(
+      writeFile.firstCall,
+      expectedPath,
+      `${source}\n`,
+      'utf8',
+    );
+    sinon.assert.calledWithExactly(
+      writeFile.secondCall,
+      expectedPath,
+      '[]\n',
+      'utf8',
+    );
+  });
+
+  it('preserves the underlying filesystem error on source export', async () => {
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: 4,
+      endLine: 0,
+    });
+    const {manager} = createManager([script], {
+      source: sourceResponse('test'),
+    });
+    const error = new Error('EACCES: permission denied');
+    sinon.stub(fs, 'writeFile').rejects(error);
+
+    await assert.rejects(
+      manager.getScriptSource({
+        scriptId: createScriptId('1'),
+        filePath: 'D:/tmp/script-source.js',
+      }),
+      error,
+    );
+  });
+
+  it('derives columns from CDP SearchMatch lineContent and adds context', async () => {
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: 40,
+      endLine: 2,
+    });
+    const search = searchResponse([
+      {lineNumber: 0, lineContent: 'before'},
+      {lineNumber: 1, lineContent: 'prefix needle suffix'},
+      {lineNumber: 2, lineContent: 'after'},
+    ]);
+    const {manager, searchInContent} = createManager([script], {search});
+
+    const result = await manager.searchInScripts({
+      query: 'needle',
+      contextLines: 1,
+    });
+
+    sinon.assert.calledOnceWithExactly(searchInContent, {
+      scriptId: '1',
+      query: 'needle',
+      caseSensitive: false,
+      isRegex: false,
+    });
+    assert.deepStrictEqual(scriptSearchMatches(result), [
+      {
+        scriptId: '1',
+        url: 'https://example.test/app.js',
+        lineNumber: 2,
+        columnNumber: 8,
+        matchText: 'needle',
+        lineContent: 'prefix needle suffix',
+        contextLines: [
+          {lineNumber: 1, text: 'before'},
+          {lineNumber: 2, text: 'prefix needle suffix'},
+          {lineNumber: 3, text: 'after'},
+        ],
+      },
+    ]);
+  });
+
+  it('applies case sensitivity and regular expressions locally', async () => {
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: 40,
+      endLine: 1,
+    });
+    const search = searchResponse([
+      {lineNumber: 0, lineContent: 'Alpha alpha'},
+      {lineNumber: 1, lineContent: 'beta42 beta7'},
+    ]);
+    const {manager, searchInContent} = createManager([script], {search});
+
+    const caseSensitive = await manager.searchInScripts({
+      query: 'alpha',
+      caseSensitive: true,
+    });
+    const regex = await manager.searchInScripts({
+      query: 'beta\\d+',
+      isRegex: true,
+    });
+
+    sinon.assert.calledWithExactly(searchInContent.firstCall, {
+      scriptId: '1',
+      query: 'alpha',
+      caseSensitive: true,
+      isRegex: false,
+    });
+    sinon.assert.calledWithExactly(searchInContent.secondCall, {
+      scriptId: '1',
+      query: 'beta\\d+',
+      caseSensitive: false,
+      isRegex: true,
+    });
+    assert.deepStrictEqual(
+      scriptSearchMatches(caseSensitive).map(match => match.columnNumber),
+      [7],
+    );
+    assert.deepStrictEqual(
+      scriptSearchMatches(regex).map(match => match.matchText),
+      ['beta42', 'beta7'],
+    );
+  });
+
+  it('excludes minified scripts before invoking CDP search', async () => {
+    const normal = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: 100,
+      endLine: 9,
+    });
+    const minified = createMockScript({
+      scriptId: createScriptId('2'),
+      url: 'https://example.test/bundle.min.js',
+      length: 20_000,
+      endLine: 0,
+    });
+    const {manager, searchInContent} = createManager([normal, minified], {
+      search: searchResponse([
+        {lineNumber: 0, lineContent: 'const answer = 1;'},
+      ]),
+    });
+
+    const result = await manager.searchInScripts({
+      query: 'answer',
+      excludeMinified: true,
+    });
+
+    sinon.assert.calledOnceWithExactly(searchInContent, {
+      scriptId: '1',
+      query: 'answer',
+      caseSensitive: false,
+      isRegex: false,
+    });
+    assert.strictEqual(result.scannedScripts, 1);
+    assert.strictEqual(result.matchCount, 1);
+  });
+
+  it('stops searching further scripts when maxMatches is reached', async () => {
+    const first = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/one.js',
+      length: 40,
+      endLine: 0,
+    });
+    const second = createMockScript({
+      scriptId: createScriptId('2'),
+      url: 'https://example.test/two.js',
+      length: 40,
+      endLine: 0,
+    });
+    const {manager, searchInContent} = createManager([first, second], {
+      search: searchResponse([{lineNumber: 0, lineContent: 'hit hit hit'}]),
+    });
+
+    const result = await manager.searchInScripts({
+      query: 'hit',
+      maxMatches: 2,
+    });
+
+    sinon.assert.calledOnceWithExactly(searchInContent, {
+      scriptId: '1',
+      query: 'hit',
+      caseSensitive: false,
+      isRegex: false,
+    });
+    assert.strictEqual(result.matchCount, 2);
+    assert.strictEqual(result.scannedScripts, 1);
+    assert.strictEqual(result.truncated, true);
+  });
+
+  it('skips a script that disappeared before the search ran', async () => {
+    const first = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/one.js',
+      length: 40,
+      endLine: 0,
+    });
+    const gone = createMockScript({
+      scriptId: createScriptId('2'),
+      url: 'https://example.test/two.js',
+      length: 40,
+      endLine: 0,
+    });
+    const third = createMockScript({
+      scriptId: createScriptId('3'),
+      url: 'https://example.test/three.js',
+      length: 40,
+      endLine: 0,
+    });
+    const {manager, searchInContent} = createManager([first, gone, third]);
+    searchInContent
+      .onFirstCall()
+      .resolves(
+        searchResponse([{lineNumber: 0, lineContent: 'const answer = 1;'}]),
+      );
+    searchInContent
+      .onSecondCall()
+      .resolves({result: [], getError: () => 'No script for id: 2'});
+    searchInContent
+      .onThirdCall()
+      .resolves(
+        searchResponse([{lineNumber: 0, lineContent: 'const answer = 3;'}]),
+      );
+
+    const result = await manager.searchInScripts({query: 'answer'});
+
+    assert.strictEqual(searchInContent.callCount, 3);
+    assert.strictEqual(result.matchCount, 2);
+    // scannedScripts counts attempted searches, including the one that skipped.
+    assert.strictEqual(result.scannedScripts, 3);
+  });
+
+  it('skips a script whose search rejects because it disappeared', async () => {
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: 40,
+      endLine: 0,
+    });
+    const {manager, searchInContent} = createManager([script]);
+    searchInContent.rejects(new Error('No script for id: 1'));
+
+    const result = await manager.searchInScripts({query: 'answer'});
+
+    assert.strictEqual(result.matchCount, 0);
+    assert.strictEqual(result.scannedScripts, 1);
+  });
+
+  it('propagates a search failure that is not a stale script', async () => {
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: 40,
+      endLine: 0,
+    });
+    const {manager} = createManager([script], {
+      search: {result: [], getError: () => 'Search is not supported'},
+    });
+
+    await assert.rejects(
+      manager.searchInScripts({query: 'answer'}),
+      /Search is not supported/,
+    );
+  });
+
+  it('does not enable a Debug Session or create another CDP session', async () => {
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: 4,
+      endLine: 0,
+    });
+    const {manager, getScriptSource, searchInContent} = createManager(
+      [script],
+      {
+        source: sourceResponse('test'),
+        search: searchResponse([]),
+      },
+    );
+
+    await manager.listScripts();
+    await manager.getScriptSource({scriptId: createScriptId('1')});
+    await manager.searchInScripts({query: 'test'});
+
+    sinon.assert.calledOnceWithExactly(getScriptSource, {scriptId: '1'});
+    sinon.assert.calledOnceWithExactly(searchInContent, {
+      scriptId: '1',
+      query: 'test',
+      caseSensitive: false,
+      isRegex: false,
+    });
+  });
+});

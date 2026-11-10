@@ -202,6 +202,13 @@ function toInputJsonSchema(schema: zod.ZodType): unknown {
   return zod.toJSONSchema(schema, {io: 'input', unrepresentable: 'any'});
 }
 
+function createInputSchema(
+  tool: AnyToolDefinition,
+): zod.ZodObject<zod.ZodRawShape, zod.core.$strict> {
+  const schema = zod.object(tool.schema).strict();
+  return tool.refine ? tool.refine(schema) : schema;
+}
+
 function formatValidationError(toolName: string, error: zod.ZodError): string {
   const details = error.issues
     .map(
@@ -252,7 +259,7 @@ export class ToolHandler {
   ) {
     this.#tool = tool;
     this.#config = config;
-    this.#registeredInputSchema = zod.object(tool.schema).strict();
+    this.#registeredInputSchema = createInputSchema(tool);
     this.#updateStatus(tool);
   }
 
@@ -288,7 +295,7 @@ export class ToolHandler {
     const previousTool = this.#tool;
     const previousDisabled = this.#disabled;
     const previousInputSchema = this.#registeredInputSchema;
-    const nextInputSchema = zod.object(tool.schema).strict();
+    const nextInputSchema = createInputSchema(tool);
 
     this.#tool = tool;
     this.#registeredInputSchema = nextInputSchema;

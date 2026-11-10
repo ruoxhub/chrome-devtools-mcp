@@ -15,6 +15,26 @@ import type {
   HeapQueryOptions,
 } from '../processors/HeapSnapshotManager.js';
 import type {McpPage} from '../McpPage.js';
+import type {
+  BreakpointRecord,
+  EvaluationResultLike,
+  ObjectPropertiesView,
+  PausedSnapshot,
+  PausedStateView,
+  PauseResult,
+  PendingPauseResult,
+  SetBreakpointOptions,
+  EvaluateOnCallFrameOptions,
+  GetObjectPropertiesOptions,
+} from '../DebuggerController.js';
+import type {
+  GetScriptSourceOptions,
+  ListScriptsOptions,
+  ScriptListResult,
+  ScriptSearchResult,
+  ScriptSourceResult,
+  SearchInScriptsOptions,
+} from '../ScriptManager.js';
 import type {CreateHookOptions, Hook, HookInjection} from '../HookManager.js';
 import type {Logpoint, LogpointOptions} from '../LogpointManager.js';
 import type {DevToolsCommentBridge} from '../devtools/DevToolsCommentBridge.js';
@@ -59,7 +79,7 @@ import type {
   DialogAction,
 } from '../utils/WaitForHelper.js';
 
-import type {ToolCategory} from './categories.js';
+import {ToolCategory} from './categories.js';
 import type {ToolGroups} from './thirdPartyDeveloper.js';
 
 export type FileVerificationOption =
@@ -120,6 +140,10 @@ export interface CapabilityGate {
   conditions?: Array<keyof ParsedArguments>;
 }
 
+export type ToolSchemaRefinement = (
+  schema: zod.ZodObject<zod.ZodRawShape, zod.core.$strict>,
+) => zod.ZodObject<zod.ZodRawShape, zod.core.$strict>;
+
 export interface BaseToolDefinition<Schema extends ToolSchema = ToolSchema> {
   name: string;
   description: string;
@@ -145,6 +169,7 @@ export interface BaseToolDefinition<Schema extends ToolSchema = ToolSchema> {
    */
   concurrency: ToolConcurrency;
   verifyFilesSchema: Partial<Record<AllKeys<Schema>, FileVerificationOption>>;
+  refine?: ToolSchemaRefinement;
 }
 
 export interface ToolDefinition<
@@ -583,6 +608,29 @@ export type ContextPage = Readonly<{
   ): Promise<DevToolsCommentBridge | undefined>;
   lighthouseNavigation(flags?: Flags): Promise<RunnerResult | undefined>;
   lighthouseSnapshot(flags?: Flags): Promise<RunnerResult | undefined>;
+  setBreakpoint(options: SetBreakpointOptions): Promise<BreakpointRecord>;
+  listBreakpoints(): readonly BreakpointRecord[];
+  removeBreakpoint(breakpointId: string): Promise<boolean>;
+  waitForPaused(options?: {timeout?: number}): Promise<PausedSnapshot>;
+  pause(options?: {
+    timeout?: number;
+  }): Promise<PauseResult | PendingPauseResult>;
+  resume(): Promise<void>;
+  step(
+    direction: 'into' | 'over' | 'out',
+    options?: {timeout?: number},
+  ): Promise<PauseResult>;
+  disable(): void;
+  getPausedState(options?: {includeScopes?: boolean}): PausedStateView;
+  evaluateOnCallFrame(
+    options: EvaluateOnCallFrameOptions,
+  ): Promise<EvaluationResultLike>;
+  getObjectProperties(
+    options: GetObjectPropertiesOptions,
+  ): Promise<ObjectPropertiesView>;
+  listScripts(options?: ListScriptsOptions): ScriptListResult;
+  getScriptSource(options: GetScriptSourceOptions): Promise<ScriptSourceResult>;
+  searchInScripts(options: SearchInScriptsOptions): Promise<ScriptSearchResult>;
 }>;
 
 export type ToolFactory<Schema extends ToolSchema = ToolSchema> = (
@@ -620,19 +668,47 @@ export type PageToolFactory<Schema extends ToolSchema = ToolSchema> = (
   args: ParsedArguments,
 ) => DefinedPageTool<Schema>;
 
+function isPagePaused(page: ContextPage): boolean {
+  const getPausedState: unknown = Reflect.get(page, 'getPausedState');
+  if (typeof getPausedState !== 'function') {
+    return false;
+  }
+  const state: unknown = getPausedState.call(page, {});
+  return (
+    state !== null &&
+    typeof state === 'object' &&
+    'paused' in state &&
+    state.paused === true
+  );
+}
+
 export function definePageTool<Schema extends ToolSchema>(
   definition: (args: ParsedArguments) => PageToolDefinition<Schema>,
 ): PageToolFactory<Schema> {
   return (args: ParsedArguments): DefinedPageTool<Schema> => {
     const tool = definition(args);
-    return {
+    const handler = tool.handler;
+    const defined: DefinedPageTool<Schema> = {
       ...tool,
       schema: {
         ...(args.pageIdRouting && !isSlimTool(tool) ? pageIdSchema : {}),
         ...tool.schema,
       },
       pageScoped: true,
+      handler: async (request, response, context) => {
+        const paused =
+          defined.annotations.category !== ToolCategory.DEBUGGING &&
+          defined.concurrency !== 'none' &&
+          isPagePaused(request.page);
+        if (paused) {
+          throw new Error(
+            'The page is paused. Call debugger_resume before retrying.',
+          );
+        }
+        return await handler(request, response, context);
+      },
     };
+    return defined;
   };
 }
 
