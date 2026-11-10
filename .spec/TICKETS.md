@@ -145,7 +145,7 @@ Evidence: merged via d266b2fe7b88497264125a516f5768c4ff8731cd; build passes (nod
 
 ## T5 — McpPage lifecycle integration
 
-- **status**: open
+- **status**: closed
 - **Branch**: `ticket/T5-mcppage-integration`
 - **Blocked by**: T2a, T2b, T3
 - **Write scopes**: `src/McpPage.ts`, `tests/McpPage.test.ts`
@@ -159,6 +159,7 @@ Evidence: merged via d266b2fe7b88497264125a516f5768c4ff8731cd; build passes (nod
   - Navigation/reload invalidates the pause snapshot; source maps still sync.
   - `tests/McpPage.test.ts` covers the guard and disposal order with mocks.
   - `npm run build` and focused test pass.
+- **Evidence**: merged via `e74ee4d`; build passes; McpPage focused tests 125/125 pass; ContextPage has 14 debugger/script methods and the paused-page guard.
 
 ---
 
