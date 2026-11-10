@@ -1844,7 +1844,8 @@ export const commands: Commands = {
     },
   },
   screencast_start: {
-    description: 'Starts recording a screencast (video) of the target page.',
+    description:
+      'Starts recording a screencast (video) of the target page. The recording stops automatically after maxDurationMs and is written to the file only when it stops, so call screencast_stop to finish it.',
     category: 'Debugging',
     args: {
       pageId: {
@@ -1859,6 +1860,23 @@ export const commands: Commands = {
         type: 'string',
         description:
           'Output file path (.mp4). Uses mkdtemp to generate a unique path if not provided.',
+        required: false,
+        positional: false,
+      },
+      maxDurationMs: {
+        name: 'maxDurationMs',
+        type: 'integer',
+        description:
+          'Maximum recording length in milliseconds, after which the recording stops automatically. Between 1000 and 600000.',
+        required: false,
+        positional: false,
+        default: 600000,
+      },
+      fps: {
+        name: 'fps',
+        type: 'integer',
+        description:
+          'Maximum frame rate. Defaults to the --screencast-fps server option, or the browser default when that is unset.',
         required: false,
         positional: false,
       },

@@ -556,6 +556,14 @@
       {
         "name": "page_id",
         "argType": "number"
+      },
+      {
+        "name": "max_duration_ms",
+        "argType": "number"
+      },
+      {
+        "name": "fps",
+        "argType": "number"
       }
     ]
   },

@@ -283,8 +283,11 @@ export class McpContext implements Context, BrowserlessContext {
       if (!screenRecorderData) {
         continue;
       }
-      const {recorder, filePath} = screenRecorderData;
+      const {recorder, filePath, timer} = screenRecorderData;
       mcpPage.setScreenRecorder(null);
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
       try {
         await recorder.stop();
         this.logger?.(

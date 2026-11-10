@@ -75,17 +75,6 @@ describe('ServerConfig', () => {
         /Implications failed:\n {2}wsHeaders -> wsEndpoint/,
       );
     });
-
-    it('rejects when implying key is set but implied key is negated', () => {
-      assert.throws(
-        () =>
-          ServerConfig.validateImplications({
-            experimentalFfmpegPath: '/bin/ffmpeg',
-            experimentalScreencast: false,
-          }),
-        /Implications failed:\n {2}experimentalFfmpegPath -> experimentalScreencast/,
-      );
-    });
   });
 
   describe('applyDefaults', () => {

@@ -39,8 +39,6 @@ export interface McpArguments
   experimentalDataFormat?: 'default' | 'toon' | 'gcf';
   experimentalIncludeAllPages: boolean;
   experimentalInteropTools: boolean;
-  experimentalScreencast: boolean;
-  experimentalFfmpegPath?: string;
   screencastFps?: number;
   performanceCrux: boolean;
   usageStatistics: boolean;
@@ -151,19 +149,6 @@ export const mcpOptions: McpOptions = {
     default: false,
     describe: 'Whether to enable interoperability tools',
     hidden: true,
-    reloadable: true,
-  },
-  experimentalScreencast: {
-    type: 'boolean',
-    default: false,
-    describe:
-      'Use the legacy ffmpeg-based screencast implementation instead of the built-in Chrome recorder. Install ffmpeg https://www.ffmpeg.org/download.html and ensure it is available in the MCP server PATH. This option is deprecated and will be removed in favour of dependency-free screencast commands that are available by default.',
-    reloadable: true,
-  },
-  experimentalFfmpegPath: {
-    type: 'string',
-    describe:
-      'Path to ffmpeg executable for legacy screencast recording (requires --experimentalScreencast).',
     reloadable: true,
   },
   screencastFps: {
@@ -438,7 +423,6 @@ export const CONFLICTING_ARGS: Array<Array<keyof McpOptions>> = [
 
 export const IMPLICATIONS: Array<[keyof McpOptions, keyof McpOptions]> = [
   ['wsHeaders', 'wsEndpoint'],
-  ['experimentalFfmpegPath', 'experimentalScreencast'],
 ];
 
 export function withoutDefaults(

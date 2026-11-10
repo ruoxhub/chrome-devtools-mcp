@@ -460,12 +460,14 @@ Results are paginated (10 rules per page by default); use pageIdx to page throug
 
 ### `screencast_start`
 
-**Description:** Starts recording a screencast (video) of the target page.
+**Description:** Starts recording a screencast (video) of the target page. The recording stops automatically after maxDurationMs and is written to the file only when it stops, so call [`screencast_stop`](#screencast_stop) to finish it.
 
 **Parameters:**
 
 - **pageId** (number) **(required)**: Targets a specific page by ID.
 - **filePath** (string) _(optional)_: Output file path (.mp4). Uses mkdtemp to generate a unique path if not provided.
+- **fps** (integer) _(optional)_: Maximum frame rate. Defaults to the --screencast-fps server option, or the browser default when that is unset.
+- **maxDurationMs** (integer) _(optional)_: Maximum recording length in milliseconds, after which the recording stops automatically. Between 1000 and 600000.
 
 ---
 
