@@ -4,7 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {Protocol} from '../third_party/index.js';
+import type {
+  ObjectPropertiesView,
+  ObjectPropertyView,
+  RemoteObjectLike,
+} from '../DebuggerController.js';
+import type {ScriptListResult, ScriptSourceResult} from '../ScriptManager.js';
+import {DevTools, type Protocol} from '../third_party/index.js';
 import {truncateText} from '../utils/text.js';
 import {formatRemoteObject} from './RemoteObjectFormatter.js';
 
@@ -617,6 +623,227 @@ function formatSearchMatches(result: SearchMatchFormatterResult): string {
     lines.push(`${result.omitted} more match(es) omitted`);
   }
   return lines.join('\n');
+}
+
+export interface FormattedObjectProperty {
+  name: string;
+  value: string;
+}
+
+export interface ObjectPropertiesFormatterResult {
+  objectId: string;
+  generation: number;
+  properties: FormattedObjectProperty[];
+  truncated: boolean;
+}
+
+function toProtocolRemoteObjectType(
+  type: string,
+): DevTools.Protocol.Runtime.RemoteObjectType {
+  switch (type) {
+    case 'object':
+      return DevTools.Protocol.Runtime.RemoteObjectType.Object;
+    case 'function':
+      return DevTools.Protocol.Runtime.RemoteObjectType.Function;
+    case 'undefined':
+      return DevTools.Protocol.Runtime.RemoteObjectType.Undefined;
+    case 'string':
+      return DevTools.Protocol.Runtime.RemoteObjectType.String;
+    case 'number':
+      return DevTools.Protocol.Runtime.RemoteObjectType.Number;
+    case 'boolean':
+      return DevTools.Protocol.Runtime.RemoteObjectType.Boolean;
+    case 'symbol':
+      return DevTools.Protocol.Runtime.RemoteObjectType.Symbol;
+    case 'bigint':
+      return DevTools.Protocol.Runtime.RemoteObjectType.Bigint;
+    default:
+      return DevTools.Protocol.Runtime.RemoteObjectType.Undefined;
+  }
+}
+
+export function toProtocolRemoteObject(
+  object: RemoteObjectLike,
+): Protocol.Runtime.RemoteObject {
+  const result: Protocol.Runtime.RemoteObject = {
+    type: toProtocolRemoteObjectType(object.type),
+  };
+  if (object.description !== undefined) {
+    result.description = object.description;
+  }
+  if (object.value !== undefined) {
+    result.value = object.value;
+  }
+  return result;
+}
+
+function formatRemoteObjectForTool(
+  object: Protocol.Runtime.RemoteObject,
+): string {
+  if (object.description !== undefined) {
+    return object.description;
+  }
+  if (object.unserializableValue !== undefined) {
+    return object.unserializableValue;
+  }
+  if (object.value === undefined) {
+    return 'undefined';
+  }
+  return String(object.value);
+}
+
+function formatObjectProperty(property: ObjectPropertyView): string {
+  const value = property.value
+    ? toProtocolRemoteObject(property.value)
+    : undefined;
+  return value ? formatRemoteObjectForTool(value) : '(unavailable)';
+}
+
+function formatObjectProperties(
+  result: ObjectPropertiesFormatterResult,
+): string {
+  const lines = [`${result.objectId} (generation ${result.generation}):`];
+  for (const property of result.properties) {
+    lines.push(`  ${property.name} = ${property.value}`);
+  }
+  if (result.truncated) {
+    lines.push('  more properties omitted');
+  }
+  return lines.join('\n');
+}
+
+export class ObjectPropertiesFormatter {
+  readonly #view: ObjectPropertiesView;
+
+  constructor(view: ObjectPropertiesView) {
+    this.#view = view;
+  }
+
+  toJSON(): ObjectPropertiesFormatterResult {
+    return {
+      objectId: this.#view.objectId,
+      generation: this.#view.generation,
+      properties: this.#view.properties.map(property => ({
+        name: property.name,
+        value: formatObjectProperty(property),
+      })),
+      truncated: this.#view.truncated,
+    };
+  }
+
+  toString(): string {
+    return formatObjectProperties(this.toJSON());
+  }
+}
+
+export interface FormattedScriptSummary {
+  scriptId: string;
+  url: string;
+  length: number;
+  startLine: number;
+  endLine: number;
+}
+
+export interface ScriptListFormatterResult {
+  total: number;
+  truncated: boolean;
+  scripts: FormattedScriptSummary[];
+}
+
+function formatScriptList(result: ScriptListFormatterResult): string {
+  const lines = [`${result.scripts.length} script(s) (total ${result.total}):`];
+  for (const script of result.scripts) {
+    lines.push(
+      `- ${script.scriptId} ${script.url} (${script.length} bytes, lines ${script.startLine}-${script.endLine})`,
+    );
+  }
+  if (result.truncated) {
+    lines.push('more script(s) omitted');
+  }
+  return lines.join('\n');
+}
+
+export class ScriptListFormatter {
+  readonly #list: ScriptListResult;
+
+  constructor(list: ScriptListResult) {
+    this.#list = list;
+  }
+
+  toJSON(): ScriptListFormatterResult {
+    return {
+      total: this.#list.total,
+      truncated: this.#list.truncated,
+      scripts: this.#list.scripts.map(script => ({
+        scriptId: script.scriptId,
+        url: script.url,
+        length: script.length,
+        startLine: script.startLine,
+        endLine: script.endLine,
+      })),
+    };
+  }
+
+  toString(): string {
+    return formatScriptList(this.toJSON());
+  }
+}
+
+export interface ScriptSourceFormatterResult {
+  scriptId: string;
+  url: string;
+  startLine: number;
+  endLine: number;
+  totalLines: number;
+  byteLength: number;
+  lines: ReadonlyArray<ScriptSourceResult['lines'][number]>;
+  previewTruncated: boolean;
+  filePath?: string;
+}
+
+function formatScriptSource(result: ScriptSourceFormatterResult): string {
+  const lines = [
+    `Script ${result.scriptId} ${result.url} lines ${result.startLine}-${result.endLine} of ${result.totalLines} (${result.byteLength} bytes):`,
+  ];
+  for (const line of result.lines) {
+    lines.push(`  ${line.lineNumber}: ${line.text}`);
+  }
+  if (result.previewTruncated) {
+    lines.push('more preview line(s) omitted');
+  }
+  if (result.filePath !== undefined) {
+    lines.push(`Exported to ${result.filePath}.`);
+  }
+  return lines.join('\n');
+}
+
+export class ScriptSourceFormatter {
+  readonly #source: ScriptSourceResult;
+
+  constructor(source: ScriptSourceResult) {
+    this.#source = source;
+  }
+
+  toJSON(): ScriptSourceFormatterResult {
+    const result: ScriptSourceFormatterResult = {
+      scriptId: this.#source.scriptId,
+      url: this.#source.url,
+      startLine: this.#source.startLine,
+      endLine: this.#source.endLine,
+      totalLines: this.#source.totalLines,
+      byteLength: this.#source.byteLength,
+      lines: [...this.#source.lines],
+      previewTruncated: this.#source.previewTruncated,
+    };
+    if (this.#source.filePath !== undefined) {
+      result.filePath = this.#source.filePath;
+    }
+    return result;
+  }
+
+  toString(): string {
+    return formatScriptSource(this.toJSON());
+  }
 }
 
 export class SearchMatchFormatter {

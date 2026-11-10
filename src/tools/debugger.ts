@@ -4,39 +4,45 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {
-  BreakpointRecord,
-  EvaluationResultLike,
-  EvaluateOnCallFrameOptions,
-  GetObjectPropertiesOptions,
-  ObjectPropertyView,
-  ObjectPropertiesView,
-  PausedSnapshot,
-  PausedStateView,
-  PauseResult,
-  PendingPauseResult,
-  RemoteObjectLike,
-  SetBreakpointOptions,
+import {
+  DEFAULT_WAIT_TIMEOUT,
+  MAX_WAIT_TIMEOUT,
+  type BreakpointRecord,
+  type EvaluationResultLike,
+  type EvaluateOnCallFrameOptions,
+  type GetObjectPropertiesOptions,
+  type ObjectPropertiesView,
+  type PausedSnapshot,
+  type PausedStateView,
+  type PauseResult,
+  type PendingPauseResult,
+  type SetBreakpointOptions,
 } from '../DebuggerController.js';
 import {
   BreakpointFormatter,
   EvaluationResultFormatter,
+  ObjectPropertiesFormatter,
   PausedStateFormatter,
+  ScriptListFormatter,
+  ScriptSourceFormatter,
   SearchMatchFormatter,
+  toProtocolRemoteObject,
   type DebuggerLocation,
   type EvaluationResult,
   type PausedCallFrame,
   type SearchMatchRecord,
 } from '../formatters/DebuggerFormatter.js';
-import type {
-  ListScriptsOptions,
-  ScriptListResult,
-  ScriptSearchMatch,
-  ScriptSearchResult,
-  ScriptSourceResult,
-  SearchInScriptsOptions,
+import {
+  MAX_BOUND,
+  MAX_CONTEXT_LINES,
+  type ListScriptsOptions,
+  type ScriptListResult,
+  type ScriptSearchMatch,
+  type ScriptSearchResult,
+  type ScriptSourceResult,
+  type SearchInScriptsOptions,
 } from '../ScriptManager.js';
-import {DevTools, zod} from '../third_party/index.js';
+import {zod} from '../third_party/index.js';
 
 import {ToolCategory} from './categories.js';
 import {
@@ -45,12 +51,8 @@ import {
   type PageToolFactory,
   type Response,
   type Context,
+  type ToolSchemaRefinement,
 } from './ToolDefinition.js';
-
-const DEFAULT_WAIT_TIMEOUT = 10_000;
-const MAX_WAIT_TIMEOUT = 30_000;
-const MAX_CONTEXT_LINES = 20;
-const MAX_BOUND = 1_000;
 
 type DebuggerPage = ContextPage &
   Readonly<{
@@ -112,6 +114,7 @@ function defineDebuggerTool<Schema extends Record<string, zod.ZodType>>(
     verifyFilesSchema: Partial<
       Record<keyof Schema, true | {local?: boolean; remote?: boolean}>
     >;
+    refine?: ToolSchemaRefinement;
     handler(
       request: DebuggerRequest<Schema>,
       response: Response,
@@ -237,46 +240,6 @@ function toPausedFormatterState(state: PausedStateView | PausedSnapshot): {
   };
 }
 
-function toProtocolRemoteObjectType(
-  type: string,
-): DevTools.Protocol.Runtime.RemoteObjectType {
-  switch (type) {
-    case 'object':
-      return DevTools.Protocol.Runtime.RemoteObjectType.Object;
-    case 'function':
-      return DevTools.Protocol.Runtime.RemoteObjectType.Function;
-    case 'undefined':
-      return DevTools.Protocol.Runtime.RemoteObjectType.Undefined;
-    case 'string':
-      return DevTools.Protocol.Runtime.RemoteObjectType.String;
-    case 'number':
-      return DevTools.Protocol.Runtime.RemoteObjectType.Number;
-    case 'boolean':
-      return DevTools.Protocol.Runtime.RemoteObjectType.Boolean;
-    case 'symbol':
-      return DevTools.Protocol.Runtime.RemoteObjectType.Symbol;
-    case 'bigint':
-      return DevTools.Protocol.Runtime.RemoteObjectType.Bigint;
-    default:
-      return DevTools.Protocol.Runtime.RemoteObjectType.Undefined;
-  }
-}
-
-function toProtocolRemoteObject(
-  object: RemoteObjectLike,
-): DevTools.Protocol.Runtime.RemoteObject {
-  const result: DevTools.Protocol.Runtime.RemoteObject = {
-    type: toProtocolRemoteObjectType(object.type),
-  };
-  if (object.description !== undefined) {
-    result.description = object.description;
-  }
-  if (object.value !== undefined) {
-    result.value = object.value;
-  }
-  return result;
-}
-
 function toEvaluationFormatterResult(
   result: EvaluationResultLike,
 ): EvaluationResult {
@@ -292,40 +255,6 @@ function toEvaluationFormatterResult(
     };
   }
   return formatted;
-}
-
-function formatObjectProperties(view: ObjectPropertiesView): string {
-  const lines = [`${view.objectId} (generation ${view.generation}):`];
-  for (const property of view.properties) {
-    lines.push(`  ${formatObjectProperty(property)}`);
-  }
-  if (view.truncated) {
-    lines.push('  more properties omitted');
-  }
-  return lines.join('\n');
-}
-
-function formatObjectProperty(property: ObjectPropertyView): string {
-  const value = property.value
-    ? toProtocolRemoteObject(property.value)
-    : undefined;
-  const text = value ? formatRemoteObjectForTool(value) : '(unavailable)';
-  return `${property.name} = ${text}`;
-}
-
-function formatRemoteObjectForTool(
-  object: DevTools.Protocol.Runtime.RemoteObject,
-): string {
-  if (object.description !== undefined) {
-    return object.description;
-  }
-  if (object.unserializableValue !== undefined) {
-    return object.unserializableValue;
-  }
-  if (object.value === undefined) {
-    return 'undefined';
-  }
-  return String(object.value);
 }
 
 function toSearchFormatterMatches(
@@ -345,35 +274,6 @@ function toSearchFormatterMatches(
     result.push(record);
   }
   return result;
-}
-
-function formatScriptList(list: ScriptListResult): string {
-  const lines = [`${list.scripts.length} script(s) (total ${list.total}):`];
-  for (const script of list.scripts) {
-    lines.push(
-      `- ${script.scriptId} ${script.url} (${script.length} bytes, lines ${script.startLine}-${script.endLine})`,
-    );
-  }
-  if (list.truncated) {
-    lines.push('more script(s) omitted');
-  }
-  return lines.join('\n');
-}
-
-function formatScriptSource(source: ScriptSourceResult): string {
-  const lines = [
-    `Script ${source.scriptId} ${source.url} lines ${source.startLine}-${source.endLine} of ${source.totalLines} (${source.byteLength} bytes):`,
-  ];
-  for (const line of source.lines) {
-    lines.push(`  ${line.lineNumber}: ${line.text}`);
-  }
-  if (source.previewTruncated) {
-    lines.push('more preview line(s) omitted');
-  }
-  if (source.filePath !== undefined) {
-    lines.push(`Exported to ${source.filePath}.`);
-  }
-  return lines.join('\n');
 }
 
 function formatInlineSearch(
@@ -438,13 +338,13 @@ export const setBreakpoint: DebuggerToolFactory = defineDebuggerTool(() => ({
   blockedByDialog: false,
   concurrency: 'page',
   verifyFilesSchema: {},
+  refine: schema =>
+    schema.refine(
+      params => (params.url === undefined) !== (params.scriptId === undefined),
+      'Provide exactly one of url or scriptId for debugger_set_breakpoint.',
+    ),
   handler: async (request, response) => {
     const {url, scriptId, lineNumber, columnNumber, condition} = request.params;
-    if ((url === undefined) === (scriptId === undefined)) {
-      throw new Error(
-        'Provide exactly one of url or scriptId for debugger_set_breakpoint.',
-      );
-    }
     const options = withoutUndefined({
       url,
       scriptId,
@@ -732,7 +632,9 @@ export const getObjectProperties: DebuggerToolFactory = defineDebuggerTool(
         depth,
       });
       const view = await request.page.getObjectProperties(options);
-      response.appendResponseLine(formatObjectProperties(view));
+      response.appendResponseLine(
+        new ObjectPropertiesFormatter(view).toString(),
+      );
     },
   }),
 );
@@ -758,7 +660,7 @@ export const listScripts: DebuggerToolFactory = defineDebuggerTool(() => ({
     const {urlFilter, maxScripts} = request.params;
     const options = withoutUndefined({urlFilter, maxScripts});
     const list = request.page.listScripts(options);
-    response.appendResponseLine(formatScriptList(list));
+    response.appendResponseLine(new ScriptListFormatter(list).toString());
   },
 }));
 
@@ -791,7 +693,7 @@ export const getScriptSource: DebuggerToolFactory = defineDebuggerTool(() => ({
       filePath,
     });
     const source = await request.page.getScriptSource(options);
-    response.appendResponseLine(formatScriptSource(source));
+    response.appendResponseLine(new ScriptSourceFormatter(source).toString());
   },
 }));
 

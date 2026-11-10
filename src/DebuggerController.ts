@@ -265,8 +265,8 @@ interface DebuggerAgentLike {
 
 const PAUSED_EVENT = 'Debugger.paused';
 const RESUMED_EVENT = 'Debugger.resumed';
-const DEFAULT_WAIT_TIMEOUT = 10_000;
-const MAX_WAIT_TIMEOUT = 30_000;
+export const DEFAULT_WAIT_TIMEOUT = 10_000;
+export const MAX_WAIT_TIMEOUT = 30_000;
 
 function toToolLocation(location: RawLocation): DebuggerLocation {
   const result: DebuggerLocation = {
@@ -452,6 +452,11 @@ export class DebuggerController {
     }
     if (this.#disposeWaiterReason !== '') {
       this.#rejectWaiters(this.#disposeWaiterReason);
+    }
+    if (this.#paused) {
+      void this.#agent
+        .invoke_resume({terminateOnResume: false})
+        .catch(() => undefined);
     }
     this.#paused = undefined;
     if (this.#enabled) {

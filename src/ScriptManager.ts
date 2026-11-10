@@ -5,6 +5,7 @@
  */
 
 import fs from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
 
 import type {TargetUniverse} from './devtools/DevtoolsUtils.js';
 import {DevTools} from './third_party/index.js';
@@ -12,10 +13,10 @@ import {truncateText} from './utils/text.js';
 
 const DEFAULT_MAX_SCRIPTS = 100;
 const DEFAULT_PREVIEW_LINES = 100;
-const MAX_BOUND = 1_000;
+export const MAX_BOUND = 1_000;
 const MAX_LINE_LENGTH = 500;
 const DEFAULT_MAX_MATCHES = 100;
-const MAX_CONTEXT_LINES = 20;
+export const MAX_CONTEXT_LINES = 20;
 const MINIFIED_LINE_THRESHOLD = 10_000;
 const EXPORT_PREVIEW_LINES = 5;
 
@@ -129,8 +130,7 @@ interface BoundedLines {
   startLine: number;
   endLine: number;
   totalLines: number;
-  byteLength: number;
-  previewTruncated: boolean;
+  truncated: boolean;
 }
 
 /**
@@ -182,42 +182,45 @@ export class ScriptManager {
       throw new Error(error);
     }
     const source = response.scriptSource;
+    const exporting = options.filePath !== undefined;
     const previewLimit =
       options.startLine === undefined && options.endLine === undefined
         ? DEFAULT_PREVIEW_LINES
         : MAX_BOUND;
-    const selected = selectLines(
+    const preview = selectLines(
       source,
       options.startLine,
       options.endLine,
       previewLimit,
     );
-    const previewCount = options.filePath
-      ? EXPORT_PREVIEW_LINES
-      : MAX_LINE_LENGTH;
-    const preview: ScriptPreviewLine[] = selected.lines
+    const exported = exporting
+      ? selectLines(source, options.startLine, options.endLine)
+      : undefined;
+    const previewCount = exporting ? EXPORT_PREVIEW_LINES : MAX_LINE_LENGTH;
+    const lines: ScriptPreviewLine[] = preview.lines
       .slice(0, previewCount)
       .map((text, index) => ({
-        lineNumber: selected.startLine + index,
+        lineNumber: preview.startLine + index,
         text: truncateText(text, MAX_LINE_LENGTH),
       }));
     if (options.filePath) {
       await fs.writeFile(
-        options.filePath,
-        `${selected.lines.join('\n')}\n`,
+        toFilesystemPath(options.filePath),
+        `${exported?.lines.join('\n') ?? ''}\n`,
         'utf8',
       );
     }
     return {
       scriptId: script.scriptId,
       url: script.sourceURL,
-      startLine: selected.startLine,
-      endLine: selected.endLine,
-      totalLines: selected.totalLines,
-      byteLength: selected.byteLength,
-      lines: preview,
+      startLine: exported?.startLine ?? preview.startLine,
+      endLine: exported?.endLine ?? preview.endLine,
+      totalLines: preview.totalLines,
+      byteLength: Buffer.byteLength(source, 'utf8'),
+      lines,
       previewTruncated:
-        selected.previewTruncated || selected.lines.length > preview.length,
+        (exporting ? false : preview.truncated) ||
+        (exported?.lines.length ?? preview.lines.length) > lines.length,
       ...(options.filePath ? {filePath: options.filePath} : {}),
     };
   }
@@ -297,7 +300,7 @@ export class ScriptManager {
     };
     if (options.filePath) {
       await fs.writeFile(
-        options.filePath,
+        toFilesystemPath(options.filePath),
         `${JSON.stringify(matches, null, 2)}\n`,
         'utf8',
       );
@@ -328,6 +331,10 @@ function bound(value: number | undefined, defaultValue: number): number {
   return Math.max(1, Math.min(Math.floor(value), MAX_BOUND));
 }
 
+function toFilesystemPath(pathOrUrl: string): string {
+  return pathOrUrl.startsWith('file:') ? fileURLToPath(pathOrUrl) : pathOrUrl;
+}
+
 function matchesUrl(url: string, urlFilter: string | undefined): boolean {
   if (!urlFilter) {
     return true;
@@ -355,7 +362,7 @@ function selectLines(
   source: string,
   requestedStart: number | undefined,
   requestedEnd: number | undefined,
-  previewLimit: number,
+  previewLimit = Number.MAX_SAFE_INTEGER,
 ): BoundedLines {
   const lines = source.split(/\r\n|\n|\r/);
   const start = Math.max(1, requestedStart ?? 1);
@@ -368,8 +375,7 @@ function selectLines(
     startLine: start,
     endLine: end,
     totalLines: lines.length,
-    byteLength: Buffer.byteLength(source, 'utf8'),
-    previewTruncated: selected.length < requestedLast - start + 1,
+    truncated: end < Math.min(requestedLast, lines.length),
   };
 }
 

@@ -139,6 +139,10 @@ export interface CapabilityGate {
   conditions?: Array<keyof ParsedArguments>;
 }
 
+export type ToolSchemaRefinement = (
+  schema: zod.ZodObject<zod.ZodRawShape, zod.core.$strict>,
+) => zod.ZodObject<zod.ZodRawShape, zod.core.$strict>;
+
 export interface BaseToolDefinition<Schema extends ToolSchema = ToolSchema> {
   name: string;
   description: string;
@@ -164,6 +168,7 @@ export interface BaseToolDefinition<Schema extends ToolSchema = ToolSchema> {
    */
   concurrency: ToolConcurrency;
   verifyFilesSchema: Partial<Record<AllKeys<Schema>, FileVerificationOption>>;
+  refine?: ToolSchemaRefinement;
 }
 
 export interface ToolDefinition<
@@ -653,6 +658,20 @@ export type PageToolFactory<Schema extends ToolSchema = ToolSchema> = (
   args: ParsedArguments,
 ) => DefinedPageTool<Schema>;
 
+function isPagePaused(page: ContextPage): boolean {
+  const getPausedState: unknown = Reflect.get(page, 'getPausedState');
+  if (typeof getPausedState !== 'function') {
+    return false;
+  }
+  const state: unknown = getPausedState.call(page, {});
+  return (
+    state !== null &&
+    typeof state === 'object' &&
+    'paused' in state &&
+    state.paused === true
+  );
+}
+
 export function definePageTool<Schema extends ToolSchema>(
   definition: (args: ParsedArguments) => PageToolDefinition<Schema>,
 ): PageToolFactory<Schema> {
@@ -670,8 +689,7 @@ export function definePageTool<Schema extends ToolSchema>(
         const paused =
           defined.annotations.category !== ToolCategory.DEBUGGING &&
           defined.concurrency !== 'none' &&
-          typeof request.page.getPausedState === 'function' &&
-          request.page.getPausedState({})?.paused === true;
+          isPagePaused(request.page);
         if (paused) {
           throw new Error(
             'The page is paused. Call debugger_resume before retrying.',

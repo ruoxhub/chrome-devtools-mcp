@@ -7,7 +7,15 @@
 import assert from 'node:assert';
 import {describe, it} from 'node:test';
 
+import type {ObjectPropertiesView} from '../../src/DebuggerController.js';
+import type {
+  ScriptListResult,
+  ScriptSourceResult,
+} from '../../src/ScriptManager.js';
 import {
+  ObjectPropertiesFormatter,
+  ScriptListFormatter,
+  ScriptSourceFormatter,
   BreakpointFormatter,
   type BreakpointRecord,
   PausedStateFormatter,
@@ -477,6 +485,124 @@ describe('EvaluationResultFormatter', () => {
       exception: undefined,
     });
     assert.strictEqual(formatter.toString(), 'No evaluation result.');
+  });
+});
+
+describe('ObjectPropertiesFormatter', () => {
+  const view: ObjectPropertiesView = {
+    objectId: 'obj-1',
+    generation: 2,
+    properties: [
+      {name: 'x', value: {type: 'number', value: 3}},
+      {name: 'missing'},
+    ],
+    truncated: true,
+    depth: 1,
+  };
+
+  it('reports object properties and truncation through toJSON()', () => {
+    const formatter = new ObjectPropertiesFormatter(view);
+
+    assert.deepStrictEqual(formatter.toJSON(), {
+      objectId: 'obj-1',
+      generation: 2,
+      properties: [
+        {name: 'x', value: '3'},
+        {name: 'missing', value: '(unavailable)'},
+      ],
+      truncated: true,
+    });
+    assert.strictEqual(
+      formatter.toString(),
+      'obj-1 (generation 2):\n' +
+        '  x = 3\n' +
+        '  missing = (unavailable)\n' +
+        '  more properties omitted',
+    );
+  });
+});
+
+describe('ScriptListFormatter', () => {
+  const list: ScriptListResult = {
+    scripts: [
+      {
+        scriptId: '1',
+        url: 'http://example.com/app.js',
+        length: 100,
+        isModule: false,
+        startLine: 1,
+        startColumn: 1,
+        endLine: 10,
+        endColumn: 1,
+      },
+    ],
+    total: 2,
+    truncated: true,
+  };
+
+  it('reports bounded script metadata through toJSON()', () => {
+    const formatter = new ScriptListFormatter(list);
+
+    assert.deepStrictEqual(formatter.toJSON(), {
+      total: 2,
+      truncated: true,
+      scripts: [
+        {
+          scriptId: '1',
+          url: 'http://example.com/app.js',
+          length: 100,
+          startLine: 1,
+          endLine: 10,
+        },
+      ],
+    });
+    assert.strictEqual(
+      formatter.toString(),
+      '1 script(s) (total 2):\n' +
+        '- 1 http://example.com/app.js (100 bytes, lines 1-10)\n' +
+        'more script(s) omitted',
+    );
+  });
+});
+
+describe('ScriptSourceFormatter', () => {
+  const source: ScriptSourceResult = {
+    scriptId: '1',
+    url: 'http://example.com/app.js',
+    startLine: 4,
+    endLine: 5,
+    totalLines: 10,
+    byteLength: 20,
+    lines: [
+      {lineNumber: 4, text: 'const a = 1;'},
+      {lineNumber: 5, text: 'const b = 2;'},
+    ],
+    previewTruncated: true,
+    filePath: 'D:/tmp/app.js',
+  };
+
+  it('reports source preview and export path through toJSON()', () => {
+    const formatter = new ScriptSourceFormatter(source);
+
+    assert.deepStrictEqual(formatter.toJSON(), {
+      scriptId: '1',
+      url: 'http://example.com/app.js',
+      startLine: 4,
+      endLine: 5,
+      totalLines: 10,
+      byteLength: 20,
+      lines: source.lines,
+      previewTruncated: true,
+      filePath: 'D:/tmp/app.js',
+    });
+    assert.strictEqual(
+      formatter.toString(),
+      'Script 1 http://example.com/app.js lines 4-5 of 10 (20 bytes):\n' +
+        '  4: const a = 1;\n' +
+        '  5: const b = 2;\n' +
+        'more preview line(s) omitted\n' +
+        'Exported to D:/tmp/app.js.',
+    );
   });
 });
 

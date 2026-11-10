@@ -10,7 +10,8 @@ import {describe, it} from 'node:test';
 import {promises as fs} from 'node:fs';
 import path from 'node:path';
 
-import type {DevTools} from '../src/third_party/index.js';
+import type {McpPage} from '../src/McpPage.js';
+import type {DevTools, ConsoleMessage} from '../src/third_party/index.js';
 import {serverHooks} from './server.js';
 import {createTempDir, html, withMcpContext} from './utils.js';
 
@@ -23,6 +24,7 @@ function scriptId(value: string): string {
 
 const APP_SCRIPT = `function add(a, b) {
   const sum = a + b;
+  globalThis.debuggerFlag = 1;
   return sum;
 }
 globalThis.add = add;
@@ -35,22 +37,27 @@ function serveAppScript(req: IncomingMessage, res: ServerResponse) {
   res.end(APP_SCRIPT);
 }
 
-function pause(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function waitForPausedState(
-  page: {getPausedState(): {paused: boolean}},
+function waitForConsoleMessage(
+  page: McpPage,
+  predicate: (message: ConsoleMessage) => boolean,
   timeoutMs: number,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (page.getPausedState().paused) {
-      return;
-    }
-    await pause(20);
-  }
-  throw new Error('The page did not pause within the timeout.');
+): Promise<{paused: boolean}> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      page.pptrPage.off('console', listener);
+      reject(
+        new Error(`Console message did not arrive within ${timeoutMs}ms.`),
+      );
+    }, timeoutMs);
+    const listener = (message: ConsoleMessage): void => {
+      if (predicate(message)) {
+        clearTimeout(timeout);
+        page.pptrPage.off('console', listener);
+        resolve({paused: page.getPausedState().paused});
+      }
+    };
+    page.pptrPage.on('console', listener);
+  });
 }
 
 describe('debugger integration', () => {
@@ -66,8 +73,13 @@ describe('debugger integration', () => {
       // A logpoint at a different line must remain non-pausing after the
       // Debug Session starts. DevTools owns one breakpoint per normalized
       // location, so the two must not share a line.
+      const logpointMessage = waitForConsoleMessage(
+        page,
+        message => message.text() === 'returning',
+        5_000,
+      );
       await page.setLogpoints([
-        {url: 'app.js', lineNumber: 3, expression: `'returning'`},
+        {url: 'app.js', lineNumber: 4, expression: `'returning'`},
       ]);
 
       const breakpoint = await page.setBreakpoint({
@@ -78,7 +90,8 @@ describe('debugger integration', () => {
 
       // Evaluate the function in the page; execution should stop at line 2.
       const evaluation = page.pptrPage.evaluate('globalThis.add(1, 2)');
-      await waitForPausedState(page, 5_000);
+      const paused = page.waitForPaused({timeout: 5_000});
+      await paused;
 
       const state = page.getPausedState();
       assert.strictEqual(state.paused, true);
@@ -91,9 +104,15 @@ describe('debugger integration', () => {
         true,
       );
 
+      const stepped = await page.step('over', {timeout: 5_000});
+      assert.strictEqual(stepped.status, 'paused');
+      assert.ok(stepped.snapshot.generation > state.generation);
+      assert.strictEqual(page.getPausedState().paused, true);
+
       await page.resume();
       assert.strictEqual(await evaluation, 3);
       assert.strictEqual(page.getPausedState().paused, false);
+      assert.strictEqual((await logpointMessage).paused, false);
 
       // Script search and source export work over the real CDP session.
       const scripts = page.listScripts({urlFilter: 'app.js'});

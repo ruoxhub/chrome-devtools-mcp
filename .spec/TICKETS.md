@@ -185,7 +185,7 @@ Evidence: merged via d266b2fe7b88497264125a516f5768c4ff8731cd; build passes (nod
 
 ## T7 — Code review fixes
 
-- **status**: open
+- **status**: closed
 - **Branch**: `ticket/T7-review-fixes`
 - **Blocked by**: T6
 - **Write scopes**: repository-wide (review-driven)
@@ -194,6 +194,15 @@ Evidence: merged via d266b2fe7b88497264125a516f5768c4ff8731cd; build passes (nod
   - Fix every finding in one fresh implementer worktree.
   - Re-run `npm run build`, `npm run format`, `npm run test` after fixes.
   - Record the review outcome and evidence below.
+
+Evidence: `npm run build` exit 0; focused spec reporter 220/220 pass
+(DebuggerController, ScriptManager, debugger tools, McpPage, DebuggerFormatter);
+real-Chrome DebuggerIntegration 1/1 pass; required core non-e2e subset
+285/285 pass (ToolHandler, McpPage, DebuggerController, ScriptManager,
+formatter, debugger tools, createTools); broader non-e2e core 1785/1785
+pass excluding three pre-existing environment-dependent failures (daemon
+PID, oversized screenshot, stdin-EOF shutdown budget); `npm run gen` and
+`npm run format` ran with unrelated docs/.spec formatting restored.
 
 ---
 
