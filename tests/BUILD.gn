@@ -82,6 +82,7 @@ ts_library("tests") {
     "tools/comments.test.ts",
     "tools/console.test.ts",
     "tools/css.test.ts",
+    "tools/debugger.test.ts",
     "tools/emulation.test.ts",
     "tools/extensions.test.ts",
     "tools/input.test.ts",
