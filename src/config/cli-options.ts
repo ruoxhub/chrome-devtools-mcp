@@ -313,6 +313,77 @@ export const commands: Commands = {
       },
     },
   },
+  create_hook: {
+    description:
+      'Injects a script into the selected page that reports or stops one kind of page operation. Every hooked call is logged with console.log in the page; read the output with list_console_messages. The hook stays registered for the page until remove_hook is called or the page is closed.\n\nTypes:\n- "function": patches a global function or method given by an assignable dotted path, for example "window.fetch" or "app.save". Reports the arguments, the stack and the result of every call.\n- "object-method": patches a method, or a getter and setter, of an object given by a dotted path, for example "JSON.stringify". The object must own the member; an inherited member is not found.\n- "eval": patches eval, the Function constructor, and the string handlers of setTimeout and setInterval.\n- "storage": patches localStorage and sessionStorage reads and writes.\n- "cookie": patches document.cookie reads and writes.\n\nWith action "log" the page keeps working unchanged. With action "block" the hooked operation is stopped: a function or method returns undefined without being called, a storage or cookie write is dropped, and eval and the Function constructor throw.\n\nA hook applies to the current document, and is lost on navigation or reload unless persist is true.',
+    category: 'Debugging',
+    args: {
+      pageId: {
+        name: 'pageId',
+        type: 'number',
+        description: 'Targets a specific page by ID.',
+        required: true,
+        positional: true,
+      },
+      type: {
+        name: 'type',
+        type: 'string',
+        description: 'The kind of page operation to hook.',
+        required: true,
+        positional: true,
+        enum: ['function', 'object-method', 'eval', 'storage', 'cookie'],
+      },
+      target: {
+        name: 'target',
+        type: 'string',
+        description:
+          'Dotted path to the hooked function or object member, for example "window.fetch" or "JSON.stringify". Required for the "function" and "object-method" types and ignored by the others.',
+        required: false,
+        positional: false,
+      },
+      action: {
+        name: 'action',
+        type: 'string',
+        description:
+          'What the hook does with the hooked operation. "log" only reports it. "block" stops it: the function is not called, the storage or cookie write is dropped, and eval and the Function constructor throw. Defaults to "log".',
+        required: false,
+        positional: false,
+        enum: ['log', 'block'],
+      },
+      customCode: {
+        name: 'customCode',
+        type: 'string',
+        description:
+          'JavaScript that runs in the page inside the hook on every hooked call, before the original operation, and with the same arguments. It can change the arguments or throw to skip that one call. Used by the "function", "object-method" and "eval" types and by the storage and cookie writes; ignored by storage and cookie reads.',
+        required: false,
+        positional: false,
+      },
+      maxCalls: {
+        name: 'maxCalls',
+        type: 'integer',
+        description:
+          'Stops logging after this many calls. Only used by the "function" type and ignored by the others.',
+        required: false,
+        positional: false,
+      },
+      minInterval: {
+        name: 'minInterval',
+        type: 'integer',
+        description:
+          'Logs at most once per this many milliseconds. Only used by the "function" type and ignored by the others.',
+        required: false,
+        positional: false,
+      },
+      persist: {
+        name: 'persist',
+        type: 'boolean',
+        description:
+          'Whether the hook is injected again into every document loaded afterwards, so it survives navigation and reload. The hook is applied to the current document either way. Defaults to false.',
+        required: false,
+        positional: false,
+      },
+    },
+  },
   drag: {
     description: 'Drag an element onto another element',
     category: 'Input automation',
@@ -1812,6 +1883,28 @@ export const commands: Commands = {
         description: 'ID of the extension to reload.',
         required: true,
         positional: true,
+      },
+    },
+  },
+  remove_hook: {
+    description:
+      'Removes a hook created with create_hook, or every hook of the page when hookId is omitted, and lists the hooks that remain. Removing a hook stops it from being injected into documents loaded later; the patch already installed in the current document stays until the page navigates or reloads, and output it already logged stays in the console.',
+    category: 'Debugging',
+    args: {
+      pageId: {
+        name: 'pageId',
+        type: 'number',
+        description: 'Targets a specific page by ID.',
+        required: true,
+        positional: true,
+      },
+      hookId: {
+        name: 'hookId',
+        type: 'string',
+        description:
+          'The id of the hook to remove, as reported by create_hook. All hooks of the page are removed when omitted.',
+        required: false,
+        positional: false,
       },
     },
   },

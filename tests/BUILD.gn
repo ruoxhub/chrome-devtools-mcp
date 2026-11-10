@@ -16,6 +16,8 @@ ts_library("tests") {
   ]
 
   sources = [
+    "HookManager.test.ts",
+    "HookScripts.test.ts",
     "LogpointManager.test.ts",
     "McpContext.test.ts",
     "McpPage.test.ts",
@@ -81,6 +83,7 @@ ts_library("tests") {
     "tools/css.test.ts",
     "tools/emulation.test.ts",
     "tools/extensions.test.ts",
+    "tools/hooks.test.ts",
     "tools/input.test.ts",
     "tools/lighthouse.test.ts",
     "tools/logpoints.test.ts",

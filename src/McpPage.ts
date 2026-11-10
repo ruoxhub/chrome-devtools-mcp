@@ -16,6 +16,12 @@ import {
   type ListenerMap,
   type UncaughtError,
 } from './collectors/PageCollector.js';
+import {
+  HookManager,
+  type CreateHookOptions,
+  type HookInjection,
+  type Hook,
+} from './HookManager.js';
 import type {Logpoint, LogpointOptions} from './LogpointManager.js';
 import {LogpointManager} from './LogpointManager.js';
 import {TextSnapshot} from './TextSnapshot.js';
@@ -208,6 +214,9 @@ export class McpPage implements ContextPage {
 
   // Logpoints, created on first use.
   #logpointManager?: LogpointManager;
+
+  // Hooks, created on first use.
+  #hookManager?: HookManager;
 
   // Dialog
   #dialog?: Dialog;
@@ -455,6 +464,28 @@ export class McpPage implements ContextPage {
       this.#logpointManager = new LogpointManager(devtoolsUniverse);
     }
     return this.#logpointManager.setLogpoints(logpoints);
+  }
+
+  /**
+   * Returns the hook manager of the page, creating it on first use.
+   */
+  getHookManager(): HookManager {
+    if (!this.#hookManager) {
+      this.#hookManager = new HookManager(this.pptrPage);
+    }
+    return this.#hookManager;
+  }
+
+  getHooks(): Hook[] {
+    return this.#hookManager?.getHooks() ?? [];
+  }
+
+  async createHook(options: CreateHookOptions): Promise<HookInjection> {
+    return await this.getHookManager().createHook(options);
+  }
+
+  async removeHook(id?: string): Promise<Hook[]> {
+    return await this.getHookManager().removeHook(id);
   }
 
   getWebAuthnAuthenticator():
@@ -913,6 +944,8 @@ export class McpPage implements ContextPage {
     this.#consoleCollector?.dispose();
     this.#logpointManager?.dispose();
     this.#logpointManager = undefined;
+    this.#hookManager?.dispose();
+    this.#hookManager = undefined;
     const devtoolsUniverse = this.#devtoolsUniverse;
     this.#devtoolsUniverse = undefined;
     this.#webAuthnAuthenticator = undefined;
