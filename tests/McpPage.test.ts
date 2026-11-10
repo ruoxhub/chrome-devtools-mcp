@@ -11,9 +11,20 @@ import sinon from 'sinon';
 
 import {UncaughtError} from '../src/collectors/PageCollector.js';
 import type {ReadonlyServerConfig} from '../src/config/ServerConfig.js';
+import type {
+  BreakpointRecord,
+  PausedStateView,
+} from '../src/DebuggerController.js';
+import {DebuggerController} from '../src/DebuggerController.js';
 import type {TargetUniverse} from '../src/devtools/DevtoolsUtils.js';
 import {LogpointManager} from '../src/LogpointManager.js';
 import {McpPage, replaceHtmlElementsWithUids} from '../src/McpPage.js';
+import type {
+  ScriptListResult,
+  ScriptSearchResult,
+  ScriptSourceResult,
+} from '../src/ScriptManager.js';
+import {ScriptManager} from '../src/ScriptManager.js';
 import {
   DevTools,
   Frame,
@@ -22,11 +33,19 @@ import {
   type JSONSchema7Definition,
 } from '../src/third_party/index.js';
 import {TextSnapshot} from '../src/TextSnapshot.js';
+import {ToolCategory} from '../src/tools/categories.js';
+import {
+  definePageTool,
+  type PageToolFactory,
+} from '../src/tools/ToolDefinition.js';
 import type {TextSnapshotNode} from '../src/types.js';
 import {
   createMockCDPSession,
   createMockDialog,
+  createMockMcpContext,
+  createMockMcpPage,
   createMockMcpResponse,
+  createMockParsedArguments,
   createMockPuppeteerPage,
   createMockPuppeteerTarget,
   createMockServerConfig,
@@ -2640,6 +2659,315 @@ describe('McpPage', () => {
         createMockAuthenticatorId('auth-2'),
       );
     });
+  });
+});
+
+describe('McpPage debugger integration', () => {
+  const BREAKPOINT: BreakpointRecord = {
+    breakpointId: 'bp-1',
+    requested: {url: 'http://example.com/app.js', lineNumber: 7},
+    resolved: [{scriptId: '1', lineNumber: 7, columnNumber: 3}],
+    bound: true,
+  };
+  const PAUSED_STATE: PausedStateView = {
+    generation: 2,
+    paused: true,
+    reason: 'other',
+    hitBreakpoints: ['bp-1'],
+    callFrames: [],
+  };
+  const SCRIPT_LIST: ScriptListResult = {
+    scripts: [],
+    total: 0,
+    truncated: false,
+  };
+  const SCRIPT_SOURCE: ScriptSourceResult = {
+    scriptId: '1',
+    url: 'http://example.com/app.js',
+    startLine: 1,
+    endLine: 1,
+    totalLines: 1,
+    byteLength: 10,
+    lines: [],
+    previewTruncated: false,
+  };
+  const SEARCH_RESULT: ScriptSearchResult = {
+    query: 'needle',
+    matchCount: 0,
+    scannedScripts: 0,
+    truncated: false,
+    matches: [],
+  };
+  type ScriptId = DevTools.Protocol.Runtime.ScriptId;
+
+  function createScriptId(value: string): ScriptId;
+  function createScriptId(value: string): string {
+    return value;
+  }
+
+  async function createMcpPageWithUniverse() {
+    const pptrPage = createMockPuppeteerPage();
+    pptrPage.emulateFocusedPage.resolves();
+    const target = createMockPuppeteerTarget({page: pptrPage});
+    const config = createMockServerConfig();
+    const mcpPage = new McpPage(target, 1, {
+      config,
+      locatorClass: Locator,
+    });
+    const universe = sinon.createStubInstance(
+      DevTools.Foundation.Universe.Universe,
+    );
+    Object.defineProperty(universe, 'settings', {
+      value: {resolve: sinon.stub().returns({set: sinon.stub()})},
+    });
+    const session = createMockCDPSession();
+    const model = sinon.createStubInstance(DevTools.DebuggerModel);
+    Object.defineProperty(model, 'agent', {
+      value: {
+        invoke_setBreakpointByUrl: sinon.stub(),
+        invoke_setBreakpoint: sinon.stub(),
+        invoke_removeBreakpoint: sinon.stub(),
+        invoke_pause: sinon.stub(),
+        invoke_resume: sinon.stub(),
+        invoke_stepInto: sinon.stub(),
+        invoke_stepOver: sinon.stub(),
+        invoke_stepOut: sinon.stub(),
+        invoke_evaluateOnCallFrame: sinon.stub(),
+      },
+    });
+    model.scriptForId.returns(null);
+    model.scripts.returns([]);
+    const devtoolsTarget = sinon.createStubInstance(DevTools.Target);
+    devtoolsTarget.model.returns(model);
+    sinon.stub(mcpPage, 'devtoolsUniverse').get((): TargetUniverse => ({
+      universe,
+      target: devtoolsTarget,
+      session,
+    }));
+    await mcpPage.init();
+    return {mcpPage, pptrPage, config, universe, session};
+  }
+
+  function createPageTool(
+    name: string,
+    category: ToolCategory,
+    concurrency: 'page' | 'none' = 'page',
+    handler: () => Promise<void> = async () => {},
+  ): PageToolFactory {
+    return definePageTool(() => ({
+      name,
+      description: name,
+      annotations: {category, readOnlyHint: false},
+      schema: {},
+      blockedByDialog: false,
+      concurrency,
+      verifyFilesSchema: {},
+      handler,
+    }));
+  }
+
+  it('creates debugger and script manager lazily and delegates 14 methods', async () => {
+    const setBreakpoint = sinon
+      .stub(DebuggerController.prototype, 'setBreakpoint')
+      .resolves(BREAKPOINT);
+    const listBreakpoints = sinon
+      .stub(DebuggerController.prototype, 'listBreakpoints')
+      .returns([BREAKPOINT]);
+    const removeBreakpoint = sinon
+      .stub(DebuggerController.prototype, 'removeBreakpoint')
+      .resolves(true);
+    const waitForPaused = sinon
+      .stub(DebuggerController.prototype, 'waitForPaused')
+      .resolves({
+        generation: 2,
+        paused: true,
+        reason: 'other',
+        hitBreakpoints: [],
+        callFrames: [],
+      });
+    const pause = sinon.stub(DebuggerController.prototype, 'pause').resolves({
+      status: 'paused',
+      snapshot: PAUSED_STATE,
+    });
+    const resume = sinon
+      .stub(DebuggerController.prototype, 'resume')
+      .resolves();
+    const step = sinon.stub(DebuggerController.prototype, 'step').resolves({
+      status: 'paused',
+      snapshot: PAUSED_STATE,
+    });
+    const disable = sinon.stub(DebuggerController.prototype, 'disable');
+    const getPausedState = sinon
+      .stub(DebuggerController.prototype, 'getPausedState')
+      .returns(PAUSED_STATE);
+    const evaluateOnCallFrame = sinon
+      .stub(DebuggerController.prototype, 'evaluateOnCallFrame')
+      .resolves({result: {type: 'number', value: 3}});
+    const getObjectProperties = sinon
+      .stub(DebuggerController.prototype, 'getObjectProperties')
+      .resolves({
+        objectId: 'obj-1',
+        generation: 2,
+        properties: [],
+        truncated: false,
+        depth: 1,
+      });
+    const listScripts = sinon
+      .stub(ScriptManager.prototype, 'listScripts')
+      .returns(SCRIPT_LIST);
+    const getScriptSource = sinon
+      .stub(ScriptManager.prototype, 'getScriptSource')
+      .resolves(SCRIPT_SOURCE);
+    const searchInScripts = sinon
+      .stub(ScriptManager.prototype, 'searchInScripts')
+      .resolves(SEARCH_RESULT);
+    const {mcpPage} = await createMcpPageWithUniverse();
+    const enable = sinon.stub(DebuggerController.prototype, 'enable');
+    sinon.assert.notCalled(listScripts);
+    sinon.assert.notCalled(setBreakpoint);
+
+    const breakpoint = {url: 'app.js', lineNumber: 7};
+    const waitOptions = {timeout: 1_000};
+    const pauseOptions = {timeout: 2_000};
+    const stepOptions = {timeout: 3_000};
+    const stateOptions = {includeScopes: true};
+    const evaluateOptions = {
+      callFrameId: 'frame-1',
+      expression: '1 + 2',
+    };
+    const propertiesOptions = {objectId: 'obj-1'};
+    const listOptions = {urlFilter: 'app.js'};
+    const sourceOptions = {scriptId: createScriptId('1'), startLine: 4};
+    const searchOptions = {query: 'needle'};
+    assert.deepStrictEqual(await mcpPage.setBreakpoint(breakpoint), BREAKPOINT);
+    assert.deepStrictEqual(mcpPage.listBreakpoints(), [BREAKPOINT]);
+    assert.strictEqual(await mcpPage.removeBreakpoint('bp-1'), true);
+    await mcpPage.waitForPaused(waitOptions);
+    await mcpPage.pause(pauseOptions);
+    await mcpPage.resume();
+    await mcpPage.step('over', stepOptions);
+    mcpPage.disable();
+    assert.deepStrictEqual(mcpPage.getPausedState(stateOptions), PAUSED_STATE);
+    assert.deepStrictEqual(await mcpPage.evaluateOnCallFrame(evaluateOptions), {
+      result: {type: 'number', value: 3},
+    });
+    assert.deepStrictEqual(
+      await mcpPage.getObjectProperties(propertiesOptions),
+      {
+        objectId: 'obj-1',
+        generation: 2,
+        properties: [],
+        truncated: false,
+        depth: 1,
+      },
+    );
+    assert.deepStrictEqual(mcpPage.listScripts(listOptions), SCRIPT_LIST);
+    assert.deepStrictEqual(
+      await mcpPage.getScriptSource(sourceOptions),
+      SCRIPT_SOURCE,
+    );
+    assert.deepStrictEqual(
+      await mcpPage.searchInScripts(searchOptions),
+      SEARCH_RESULT,
+    );
+
+    sinon.assert.calledOnceWithExactly(setBreakpoint, breakpoint);
+    sinon.assert.calledOnceWithExactly(listBreakpoints);
+    sinon.assert.calledOnceWithExactly(removeBreakpoint, 'bp-1');
+    sinon.assert.calledOnceWithExactly(waitForPaused, waitOptions);
+    sinon.assert.calledOnceWithExactly(pause, pauseOptions);
+    sinon.assert.calledOnceWithExactly(resume);
+    sinon.assert.calledOnceWithExactly(step, 'over', stepOptions);
+    sinon.assert.calledOnceWithExactly(disable);
+    sinon.assert.calledOnceWithExactly(getPausedState, stateOptions);
+    sinon.assert.calledOnceWithExactly(evaluateOnCallFrame, evaluateOptions);
+    sinon.assert.calledOnceWithExactly(getObjectProperties, propertiesOptions);
+    sinon.assert.calledOnceWithExactly(listScripts, listOptions);
+    sinon.assert.calledOnceWithExactly(getScriptSource, sourceOptions);
+    sinon.assert.calledOnceWithExactly(searchInScripts, searchOptions);
+    sinon.assert.called(enable);
+    assert.strictEqual(
+      enable.firstCall.thisValue,
+      setBreakpoint.firstCall.thisValue,
+    );
+  });
+
+  it('invalidates the paused snapshot on frame navigation', async () => {
+    const invalidatePausedState = sinon.stub(
+      DebuggerController.prototype,
+      'invalidatePausedState',
+    );
+    const {mcpPage, pptrPage} = await createMcpPageWithUniverse();
+    mcpPage.listBreakpoints();
+
+    pptrPage.emit('framenavigated', pptrPage.mainFrame());
+
+    sinon.assert.calledOnceWithExactly(invalidatePausedState);
+  });
+
+  it('fails unrelated page tools fast while the debugger is paused', async () => {
+    const {mcpPage} = await createMcpPageWithUniverse();
+    sinon.stub(mcpPage, 'getPausedState').returns(PAUSED_STATE);
+    const page = createMockMcpPage();
+    page.getPausedState.returns(PAUSED_STATE);
+    const args = createMockParsedArguments();
+    const handler = sinon.stub().resolves();
+    const tool = createPageTool(
+      'take_snapshot',
+      ToolCategory.INPUT,
+      'page',
+      handler,
+    )(args);
+    const guardedHandler = tool.handler;
+
+    await assert.rejects(
+      guardedHandler(
+        {params: {}, page},
+        createMockMcpResponse(),
+        createMockMcpContext(),
+      ),
+      /The page is paused\. Call debugger_resume before retrying\./,
+    );
+    sinon.assert.notCalled(handler);
+    sinon.assert.notCalled(page.pptrPage.screenshot);
+    assert.strictEqual(mcpPage.getPausedState({}).paused, true);
+  });
+
+  it('exempts debugger tools and concurrency: none waits from the paused-page guard', async () => {
+    const page = createMockMcpPage();
+    page.getPausedState.returns(PAUSED_STATE);
+    const args = createMockParsedArguments();
+    const debuggerHandler = sinon.stub().resolves();
+    const waitHandler = sinon.stub().resolves();
+    const debuggerTool = createPageTool(
+      'debugger_resume',
+      ToolCategory.DEBUGGING,
+      'page',
+      debuggerHandler,
+    )(args);
+    const waitTool = createPageTool(
+      'debugger_wait_for_paused',
+      ToolCategory.DEBUGGING,
+      'none',
+      waitHandler,
+    )(args);
+    const guardedDebuggerHandler = debuggerTool.handler;
+    const guardedWaitHandler = waitTool.handler;
+
+    await guardedDebuggerHandler(
+      {params: {}, page},
+      createMockMcpResponse(),
+      createMockMcpContext(),
+    );
+    await guardedWaitHandler(
+      {params: {}, page},
+      createMockMcpResponse(),
+      createMockMcpContext(),
+    );
+
+    sinon.assert.calledOnce(debuggerHandler);
+    sinon.assert.calledOnce(waitHandler);
+    sinon.assert.notCalled(page.getPausedState);
   });
 });
 
