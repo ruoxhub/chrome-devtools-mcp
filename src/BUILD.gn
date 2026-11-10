@@ -120,6 +120,7 @@ ts_library("mcp_lib") {
     "tools/comments.ts",
     "tools/console.ts",
     "tools/css.ts",
+    "tools/debugger.ts",
     "tools/emulation.ts",
     "tools/extensions.ts",
     "tools/input.ts",
