@@ -39,8 +39,6 @@ export interface McpArguments
   experimentalDataFormat?: 'default' | 'toon' | 'gcf';
   experimentalIncludeAllPages: boolean;
   experimentalInteropTools: boolean;
-  experimentalScreencast: boolean;
-  experimentalFfmpegPath?: string;
   screencastFps?: number;
   performanceCrux: boolean;
   usageStatistics: boolean;
@@ -153,19 +151,6 @@ export const mcpOptions: McpOptions = {
     hidden: true,
     reloadable: true,
   },
-  experimentalScreencast: {
-    type: 'boolean',
-    default: false,
-    describe:
-      'Use the legacy ffmpeg-based screencast implementation instead of the built-in Chrome recorder. Install ffmpeg https://www.ffmpeg.org/download.html and ensure it is available in the MCP server PATH. This option is deprecated and will be removed in favour of dependency-free screencast commands that are available by default.',
-    reloadable: true,
-  },
-  experimentalFfmpegPath: {
-    type: 'string',
-    describe:
-      'Path to ffmpeg executable for legacy screencast recording (requires --experimentalScreencast).',
-    reloadable: true,
-  },
   screencastFps: {
     type: 'number',
     alias: 'experimentalScreencastFps',
@@ -201,7 +186,7 @@ export const mcpOptions: McpOptions = {
     type: 'boolean',
     default: true,
     describe:
-      'Set to false to disable the server entry points for evaluating caller-provided JavaScript: evaluation tools (evaluate_script, set_logpoints, and slim evaluate) are disabled, the initScript parameter in navigate_page is turned off, and navigating to javascript:, data:, or vbscript: URLs is disallowed. This is not a JavaScript sandbox: page scripts and JavaScript triggered through other permitted browser interactions (e.g. clicks or typing) still run. If --experimentalDevtools is also enabled, the DevTools UI, including the Console that evaluates code in the inspected page, can be automated and is not restricted by this option. The client remains responsible for validating tool calls and parameters.',
+      'Set to false to disable the server entry points for evaluating caller-provided JavaScript: evaluation tools (evaluate_script, create_hook, set_logpoints, and slim evaluate) are disabled, the initScript parameter in navigate_page is turned off, and navigating to javascript:, data:, or vbscript: URLs is disallowed. This is not a JavaScript sandbox: page scripts and JavaScript triggered through other permitted browser interactions (e.g. clicks or typing) still run. If --experimentalDevtools is also enabled, the DevTools UI, including the Console that evaluates code in the inspected page, can be automated and is not restricted by this option. The client remains responsible for validating tool calls and parameters.',
     reloadable: true,
   },
   fileNavigations: {
@@ -438,7 +423,6 @@ export const CONFLICTING_ARGS: Array<Array<keyof McpOptions>> = [
 
 export const IMPLICATIONS: Array<[keyof McpOptions, keyof McpOptions]> = [
   ['wsHeaders', 'wsEndpoint'],
-  ['experimentalFfmpegPath', 'experimentalScreencast'],
 ];
 
 export function withoutDefaults(

@@ -184,11 +184,13 @@
   },
   {
     "name": "experimental_screencast_present",
-    "flagType": "boolean"
+    "flagType": "boolean",
+    "isDeprecated": true
   },
   {
     "name": "experimental_screencast",
-    "flagType": "boolean"
+    "flagType": "boolean",
+    "isDeprecated": true
   },
   {
     "name": "category_in_page_tools",
@@ -218,7 +220,8 @@
   },
   {
     "name": "experimental_ffmpeg_path_present",
-    "flagType": "boolean"
+    "flagType": "boolean",
+    "isDeprecated": true
   },
   {
     "name": "experimental_memory",

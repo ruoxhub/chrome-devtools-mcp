@@ -556,6 +556,14 @@
       {
         "name": "page_id",
         "argType": "number"
+      },
+      {
+        "name": "max_duration_ms",
+        "argType": "number"
+      },
+      {
+        "name": "fps",
+        "argType": "number"
       }
     ]
   },
@@ -1680,6 +1688,56 @@
       },
       {
         "name": "file_path_length",
+        "argType": "number"
+      }
+    ]
+  },
+  {
+    "name": "create_hook",
+    "args": [
+      {
+        "name": "page_id",
+        "argType": "number"
+      },
+      {
+        "name": "type",
+        "argType": "string"
+      },
+      {
+        "name": "target_length",
+        "argType": "number"
+      },
+      {
+        "name": "action",
+        "argType": "string"
+      },
+      {
+        "name": "custom_code_length",
+        "argType": "number"
+      },
+      {
+        "name": "max_calls",
+        "argType": "number"
+      },
+      {
+        "name": "min_interval",
+        "argType": "number"
+      },
+      {
+        "name": "persist",
+        "argType": "boolean"
+      }
+    ]
+  },
+  {
+    "name": "remove_hook",
+    "args": [
+      {
+        "name": "page_id",
+        "argType": "number"
+      },
+      {
+        "name": "hook_id_length",
         "argType": "number"
       }
     ]

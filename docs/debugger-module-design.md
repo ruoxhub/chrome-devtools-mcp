@@ -20,8 +20,8 @@ Fourteen tools in the existing `DEBUGGING` category: three breakpoint tools,
 four execution-control tools, four pause-inspection tools, and three script
 tools. Logpoints, watch expressions, XHR/event breakpoints, blackboxing,
 function trees, and saved sessions remain out of scope. See
-`docs/adr/0001-share-devtools-debugger-session.md` and
-`docs/adr/0002-paused-snapshots-and-tool-concurrency.md`.
+`docs/adr/0003-share-devtools-debugger-session.md` and
+`docs/adr/0004-paused-snapshots-and-tool-concurrency.md`.
 
 ## Puppeteer CDP session facts
 

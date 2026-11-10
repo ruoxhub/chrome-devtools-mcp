@@ -29,8 +29,8 @@ import {ScriptManager} from '../src/ScriptManager.js';
 import {
   DevTools,
   Frame,
+  CdpScreenRecording,
   Locator,
-  ScreenRecorder,
   type JSONSchema7Definition,
 } from '../src/third_party/index.js';
 import {TextSnapshot} from '../src/TextSnapshot.js';
@@ -54,6 +54,7 @@ import {
   createMockTargetUniverse,
   createMockWebAuthnModel,
   createMockWebMCPTool,
+  createScreenRecorderData,
 } from './mocks.js';
 import {serverHooks} from './server.js';
 import {getMockRequest, html, withMcpContext} from './utils.js';
@@ -476,9 +477,9 @@ describe('McpPage', () => {
         config: createMockServerConfig(),
         locatorClass: Locator,
       });
-      const recorder = sinon.createStubInstance(ScreenRecorder);
+      const recorder = sinon.createStubInstance(CdpScreenRecording);
       recorder.stop.resolves();
-      mcpPage.setScreenRecorder({recorder, filePath: '/tmp/video.mp4'});
+      mcpPage.setScreenRecorder(createScreenRecorderData({recorder}));
 
       mcpPage.dispose();
 

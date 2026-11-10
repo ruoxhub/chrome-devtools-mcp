@@ -37,6 +37,7 @@ Note: For `evaluate_script`, `pageId` is required when targeting pages. However,
 - **CSS & Styling inspection**: Use `get_css_styles` to inspect matched rules, cascade, and CSS variables. Treat the output as authoritative and complete.
 - **Additional details**: Use `evaluate_script` for runtime DOM/JS data not available via `get_css_styles` or `take_snapshot`.
 - **Runtime values**: Use `set_logpoints` to log expressions at script or source-file lines (source maps supported) instead of editing code; read the output with `list_console_messages`.
+- **Page calls**: Use `create_hook` to report or block calls to a page function, object method, `eval`, `localStorage` or `document.cookie` without editing the page; read the output with `list_console_messages` and remove it with `remove_hook`.
 
 ### Parallel execution
 

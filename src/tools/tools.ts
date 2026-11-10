@@ -13,6 +13,7 @@ import * as cssTools from './css.js';
 import * as debuggerTools from './debugger.js';
 import * as emulationTools from './emulation.js';
 import * as extensionTools from './extensions.js';
+import * as hookTools from './hooks.js';
 import * as inputTools from './input.js';
 import * as lighthouseTools from './lighthouse.js';
 import * as logpointTools from './logpoints.js';
@@ -39,6 +40,7 @@ export const createTools = (args: ParsedArguments): AnyToolDefinition[] => {
     ...Object.values(debuggerTools),
     ...Object.values(emulationTools),
     ...Object.values(extensionTools),
+    ...Object.values(hookTools),
     ...Object.values(inputTools),
     ...Object.values(lighthouseTools),
     ...Object.values(logpointTools),

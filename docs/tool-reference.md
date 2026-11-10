@@ -30,7 +30,8 @@
 - **[Network](#network)** (2 tools)
   - [`get_network_request`](#get_network_request)
   - [`list_network_requests`](#list_network_requests)
-- **[Debugging](#debugging)** (24 tools)
+- **[Debugging](#debugging)** (26 tools)
+  - [`create_hook`](#create_hook)
   - [`debugger_disable`](#debugger_disable)
   - [`debugger_evaluate`](#debugger_evaluate)
   - [`debugger_get_object_properties`](#debugger_get_object_properties)
@@ -49,6 +50,7 @@
   - [`lighthouse_audit`](#lighthouse_audit)
   - [`list_console_messages`](#list_console_messages)
   - [`list_scripts`](#list_scripts)
+  - [`remove_hook`](#remove_hook)
   - [`screencast_start`](#screencast_start)
   - [`screencast_stop`](#screencast_stop)
   - [`search_in_scripts`](#search_in_scripts)
@@ -395,6 +397,35 @@
 
 ## Debugging
 
+### `create_hook`
+
+**Description:** Injects a script into the selected page that reports or stops one kind of page operation. Every hooked call is logged with console.log in the page; read the output with [`list_console_messages`](#list_console_messages). The hook stays registered for the page until [`remove_hook`](#remove_hook) is called or the page is closed.
+
+Types:
+
+- "function": patches a global function or method given by an assignable dotted path, for example "window.fetch" or "app.save". Reports the arguments, the stack and the result of every call.
+- "object-method": patches a method, or a getter and setter, of an object given by a dotted path, for example "JSON.stringify". The object must own the member; an inherited member is not found.
+- "eval": patches eval, the Function constructor, and the string handlers of setTimeout and setInterval.
+- "storage": patches localStorage and sessionStorage reads and writes.
+- "cookie": patches document.cookie reads and writes.
+
+With action "log" the page keeps working unchanged. With action "block" the hooked operation is stopped: a function or method returns undefined without being called, a storage or cookie write is dropped, and eval and the Function constructor throw.
+
+A hook applies to the current document, and is lost on navigation or reload unless persist is true. A persistent hook runs before the scripts of each document, so a target the page defines in its own scripts is hooked as soon as it appears; a target that never appears reports a warning in the console and stays inactive in that document.
+
+**Parameters:**
+
+- **pageId** (number) **(required)**: Targets a specific page by ID.
+- **type** (enum: "function", "object-method", "eval", "storage", "cookie") **(required)**: The kind of page operation to hook.
+- **action** (enum: "log", "block") _(optional)_: What the hook does with the hooked operation. "log" only reports it. "block" stops it: the function is not called, the storage or cookie write is dropped, and eval and the Function constructor throw. Defaults to "log".
+- **customCode** (string) _(optional)_: JavaScript that runs in the page inside the hook on every hooked call, before the original operation, and with the same arguments. It can change the arguments or throw to skip that one call. Used by the "function", "object-method" and "eval" types and by the storage and cookie writes; ignored by storage and cookie reads.
+- **maxCalls** (integer) _(optional)_: Stops logging after this many calls. Only used by the "function" type and ignored by the others.
+- **minInterval** (integer) _(optional)_: Logs at most once per this many milliseconds. Only used by the "function" type and ignored by the others.
+- **persist** (boolean) _(optional)_: Whether the hook is injected again into every document loaded afterwards, so it survives navigation and reload. The hook is applied to the current document either way. A persistent hook runs before the scripts of a document, so a target that the page defines later is hooked once it appears, for up to about five seconds; a target that never appears reports a warning in the console. Defaults to false.
+- **target** (string) _(optional)_: Dotted path to the hooked function or object member, for example "window.fetch" or "JSON.stringify". Required for the "function" and "object-method" types and ignored by the others.
+
+---
+
 ### `debugger_disable`
 
 **Description:** Disable the Debug Session, resume a paused page, remove this module’s breakpoints, and restore the page’s original non-pausing behavior while leaving logpoints intact.
@@ -630,14 +661,27 @@ Results are paginated (10 rules per page by default); use pageIdx to page throug
 
 ---
 
+### `remove_hook`
+
+**Description:** Removes a hook created with [`create_hook`](#create_hook), or every hook of the page when hookId is omitted, and lists the hooks that remain. Removing a hook stops it from being injected into documents loaded later; the patch already installed in the current document stays until the page navigates or reloads, and output it already logged stays in the console.
+
+**Parameters:**
+
+- **pageId** (number) **(required)**: Targets a specific page by ID.
+- **hookId** (string) _(optional)_: The id of the hook to remove, as reported by [`create_hook`](#create_hook). All hooks of the page are removed when omitted.
+
+---
+
 ### `screencast_start`
 
-**Description:** Starts recording a screencast (video) of the target page.
+**Description:** Starts recording a screencast (video) of the target page. The recording stops automatically after maxDurationMs and is written to the file only when it stops, so call [`screencast_stop`](#screencast_stop) to finish it.
 
 **Parameters:**
 
 - **pageId** (number) **(required)**: Targets a specific page by ID.
 - **filePath** (string) _(optional)_: Output file path (.mp4). Uses mkdtemp to generate a unique path if not provided.
+- **fps** (integer) _(optional)_: Maximum frame rate. Defaults to the --screencast-fps server option, or the browser default when that is unset.
+- **maxDurationMs** (integer) _(optional)_: Maximum recording length in milliseconds, after which the recording stops automatically. Between 1000 and 600000.
 
 ---
 

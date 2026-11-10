@@ -67,7 +67,6 @@ describe('cli args parsing', () => {
     experimentalToonFormat: false,
     experimentalIncludeAllPages: false,
     experimentalInteropTools: false,
-    experimentalScreencast: false,
     memoryDebugging: false,
     experimentalStructuredContent: false,
     pageIdRouting: true,

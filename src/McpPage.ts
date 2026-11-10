@@ -29,6 +29,12 @@ import {
   type ListenerMap,
   type UncaughtError,
 } from './collectors/PageCollector.js';
+import {
+  HookManager,
+  type CreateHookOptions,
+  type HookInjection,
+  type Hook,
+} from './HookManager.js';
 import type {Logpoint, LogpointOptions} from './LogpointManager.js';
 import {LogpointManager} from './LogpointManager.js';
 import {
@@ -234,6 +240,8 @@ export class McpPage implements ContextPage {
   // Debugger and script inspection, created on first use from the universe.
   #debuggerController?: DebuggerController;
   #scriptManager?: ScriptManager;
+  // Hooks, created on first use.
+  #hookManager?: HookManager;
 
   // Dialog
   #dialog?: Dialog;
@@ -584,6 +592,28 @@ export class McpPage implements ContextPage {
     options: SearchInScriptsOptions,
   ): Promise<ScriptSearchResult> {
     return this.#getScriptManager().searchInScripts(options);
+  }
+
+  /**
+   * Returns the hook manager of the page, creating it on first use.
+   */
+  getHookManager(): HookManager {
+    if (!this.#hookManager) {
+      this.#hookManager = new HookManager(this.pptrPage);
+    }
+    return this.#hookManager;
+  }
+
+  getHooks(): Hook[] {
+    return this.#hookManager?.getHooks() ?? [];
+  }
+
+  async createHook(options: CreateHookOptions): Promise<HookInjection> {
+    return await this.getHookManager().createHook(options);
+  }
+
+  async removeHook(id?: string): Promise<Hook[]> {
+    return await this.getHookManager().removeHook(id);
   }
 
   getWebAuthnAuthenticator():
@@ -1031,8 +1061,11 @@ export class McpPage implements ContextPage {
     this.#isRunningPerformanceTrace = false;
     this.disposeCommentBridge();
     if (this.#screenRecorder) {
-      const {recorder} = this.#screenRecorder;
+      const {recorder, timer} = this.#screenRecorder;
       this.#screenRecorder = null;
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
       void recorder.stop().catch(e => {
         logger?.('Failed to stop screencast recording on dispose', e);
       });
@@ -1046,6 +1079,8 @@ export class McpPage implements ContextPage {
     this.#debuggerController?.dispose();
     this.#debuggerController = undefined;
     this.#scriptManager = undefined;
+    this.#hookManager?.dispose();
+    this.#hookManager = undefined;
     const devtoolsUniverse = this.#devtoolsUniverse;
     this.#devtoolsUniverse = undefined;
     this.#webAuthnAuthenticator = undefined;

@@ -12,8 +12,8 @@ DevTools debugging infrastructure or adding npm dependencies.
 ## Context pointers
 
 - Terms: [`GLOSSARY.md`](../GLOSSARY.md)
-- Decisions: [`docs/adr/0001-share-devtools-debugger-session.md`](../docs/adr/0001-share-devtools-debugger-session.md),
-  [`docs/adr/0002-paused-snapshots-and-tool-concurrency.md`](../docs/adr/0002-paused-snapshots-and-tool-concurrency.md)
+- Decisions: [`docs/adr/0003-share-devtools-debugger-session.md`](../docs/adr/0003-share-devtools-debugger-session.md),
+  [`docs/adr/0004-paused-snapshots-and-tool-concurrency.md`](../docs/adr/0004-paused-snapshots-and-tool-concurrency.md)
 - API and protocol details: [`docs/debugger-module-design.md`](../docs/debugger-module-design.md)
 - Repo rules: [`AGENTS.md`](../AGENTS.md), [`docs/design-principles.md`](../docs/design-principles.md)
 - Reference implementations (read-only, do not copy code):
