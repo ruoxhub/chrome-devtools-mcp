@@ -16,6 +16,8 @@ ts_library("tests") {
   ]
 
   sources = [
+    "HookManager.test.ts",
+    "HookScripts.test.ts",
     "LogpointManager.test.ts",
     "McpContext.test.ts",
     "McpPage.test.ts",
@@ -42,6 +44,7 @@ ts_library("tests") {
     "e2e/chrome-devtools-commands.test.ts",
     "e2e/chrome-devtools-disabled-tools.test.ts",
     "e2e/chrome-devtools-disclaimers.test.ts",
+    "e2e/chrome-devtools-hooks.test.ts",
     "e2e/chrome-devtools-hyphen-positionals.test.ts",
     "e2e/chrome-devtools-performance.test.ts",
     "e2e/chrome-devtools-start-stop.test.ts",
@@ -82,6 +85,7 @@ ts_library("tests") {
     "tools/css.test.ts",
     "tools/emulation.test.ts",
     "tools/extensions.test.ts",
+    "tools/hooks.test.ts",
     "tools/input.test.ts",
     "tools/lighthouse.test.ts",
     "tools/logpoints.test.ts",

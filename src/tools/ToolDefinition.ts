@@ -15,6 +15,7 @@ import type {
   HeapQueryOptions,
 } from '../processors/HeapSnapshotManager.js';
 import type {McpPage} from '../McpPage.js';
+import type {CreateHookOptions, Hook, HookInjection} from '../HookManager.js';
 import type {Logpoint, LogpointOptions} from '../LogpointManager.js';
 import type {DevToolsCommentBridge} from '../devtools/DevToolsCommentBridge.js';
 import type {CssFormatterOptions} from '../formatters/CssFormatter.js';
@@ -533,6 +534,9 @@ export type ContextPage = Readonly<{
   clearDialog(): void;
   throwIfDialogOpen(): void;
   setLogpoints(logpoints: LogpointOptions[]): Promise<Logpoint[]>;
+  createHook(options: CreateHookOptions): Promise<HookInjection>;
+  getHooks(): Hook[];
+  removeHook(id?: string): Promise<Hook[]>;
   isClosed(): boolean;
   getScreenRecorder(): ScreenRecorderData | null;
   setScreenRecorder(data: ScreenRecorderData | null): void;

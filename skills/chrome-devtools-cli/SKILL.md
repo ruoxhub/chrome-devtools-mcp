@@ -134,6 +134,11 @@ chrome-devtools list_network_requests 1 --includePreservedRequests true # Includ
 ## Debugging & Inspection
 
 ```bash
+chrome-devtools create_hook 1 function --target "window.fetch" # Report calls to a page function or method; read them with list_console_messages
+chrome-devtools create_hook 1 function --target "window.fetch" --action block --persist true # Block the call and keep the hook across navigations
+chrome-devtools create_hook 1 object-method --target "JSON.stringify" # Report calls to an object method or its getter and setter
+chrome-devtools create_hook 1 storage --persist true # Report localStorage and sessionStorage reads and writes
+chrome-devtools create_hook 1 cookie # Report document.cookie reads and writes
 chrome-devtools evaluate_script "() => document.title" --pageId 1 # Evaluate a JavaScript function on page 1
 chrome-devtools evaluate_script "(a) => a.innerText" --pageId 1 --args 1_4 # Evaluate JS with UID arguments on page 1
 chrome-devtools evaluate_script --pageId 1 --sourcePath /path/to/script.js --format script # Evaluate a local classic JavaScript file on page 1
@@ -147,6 +152,8 @@ chrome-devtools list_console_messages 1 # List all console messages
 chrome-devtools list_console_messages 1 --pageSize 20 --pageIdx 1 # List console messages with pagination
 chrome-devtools list_console_messages 1 --types error --types info # Filter console messages by type
 chrome-devtools list_console_messages 1 --includePreservedMessages true # Include preserved messages
+chrome-devtools remove_hook 1 --hookId "hook-1" # Remove one hook by its id as reported by create_hook
+chrome-devtools remove_hook 1 # Remove every hook of the page
 chrome-devtools take_screenshot 1 # Take a screenshot of the page viewport
 chrome-devtools take_screenshot 1 --fullPage true --format "jpeg" --quality 80 # Take a full page screenshot as JPEG with quality
 chrome-devtools take_screenshot 1 --uid "id" --filePath "s.png" # Take a screenshot of an element

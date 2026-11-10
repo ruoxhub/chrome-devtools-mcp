@@ -57,6 +57,8 @@ ts_library("mcp_lib") {
 
   sources = [
     "BrowserManager.ts",
+    "HookManager.ts",
+    "HookScripts.ts",
     "LogpointManager.ts",
     "McpContext.ts",
     "McpPage.ts",
@@ -120,6 +122,7 @@ ts_library("mcp_lib") {
     "tools/css.ts",
     "tools/emulation.ts",
     "tools/extensions.ts",
+    "tools/hooks.ts",
     "tools/input.ts",
     "tools/lighthouse.ts",
     "tools/logpoints.ts",
