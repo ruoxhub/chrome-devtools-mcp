@@ -25,6 +25,12 @@ export interface HookOptions {
   maxCalls?: number;
   /** Logs at most once per this many milliseconds. `function` type only. */
   minInterval?: number;
+  /**
+   * Whether a script that cannot find its target yet keeps looking for it. Set
+   * for a persistent hook, which runs at the start of a document, before the
+   * scripts of the page define the target it hooks.
+   */
+  retry?: boolean;
 }
 
 /**
@@ -98,7 +104,15 @@ function requireTarget(options: HookOptions): string {
   return target;
 }
 
-function requireObjectTarget(options: HookOptions): {
+/**
+ * Splits a target into the expression that owns it and the member to patch. A
+ * target without a dot belongs to `defaultOwner`, which lets a persistent hook
+ * watch a global that the document defines later.
+ */
+function requireTargetParts(
+  options: HookOptions,
+  defaultOwner?: string,
+): {
   target: string;
   owner: string;
   name: string;
@@ -106,9 +120,12 @@ function requireObjectTarget(options: HookOptions): {
   const target = requireTarget(options);
   const separator = target.lastIndexOf('.');
   if (separator === -1) {
-    throw new Error(
-      `Invalid object-method target "${target}". Expected an object and a member, such as "JSON.stringify".`,
-    );
+    if (defaultOwner === undefined) {
+      throw new Error(
+        `Invalid object-method target "${target}". Expected an object and a member, such as "JSON.stringify".`,
+      );
+    }
+    return {target, owner: defaultOwner, name: target};
   }
   return {
     target,
@@ -121,24 +138,57 @@ function customCode(options: HookOptions): string {
   return options.customCode === undefined ? '' : `\n${options.customCode}\n`;
 }
 
+/**
+ * Wraps a hook body that needs its target to exist. A persistent script runs
+ * before the scripts of the document, so the target it hooks may be defined
+ * later; the body then runs again for a bounded time, and the last attempt
+ * reports why the hook stayed inactive.
+ */
+function repeatUntilTargetExists(label: string, body: string): string {
+  return `const attempt = function () {
+${body}
+};
+let attempts = 0;
+let result = attempt();
+if (!result.applied) {
+  const timer = setInterval(function () {
+    attempts++;
+    result = attempt();
+    if (result.applied) {
+      clearInterval(timer);
+      return;
+    }
+    if (attempts < 100) {
+      return;
+    }
+    clearInterval(timer);
+    console.warn('[Hook] could not hook ${label}: ' + result.detail);
+  }, 50);
+}
+return result;`;
+}
+
 function generateFunctionHook(options: HookOptions): string {
-  const target = requireTarget(options);
+  const {target, owner, name} = requireTargetParts(options, 'window');
   const body =
     options.action === 'block'
       ? 'return undefined;'
-      : `const result = original.apply(this, arguments);
+      : `const returned = original.apply(this, arguments);
   if (report) {
-    console.log('[Hook] ${target} returned', result);
+    console.log('[Hook] ${target} returned', returned);
   }
-  return result;`;
-  return wrap(`
-const original = ${target};
+  return returned;`;
+  const install = `const container = ${owner};
+if (container === undefined || container === null) {
+  return {applied: false, detail: '${owner} does not exist yet'};
+}
+const original = container['${name}'];
 if (typeof original !== 'function') {
   return {applied: false, detail: '${target} is not a function'};
 }
 let calls = 0;
 let lastLogged = 0;
-${target} = function () {
+container['${name}'] = function () {
   const now = Date.now();
   calls++;
   const report = calls <= ${options.maxCalls ?? 'Infinity'} && now - lastLogged >= ${options.minInterval ?? 0};
@@ -148,31 +198,36 @@ ${target} = function () {
   }
 ${customCode(options)}  ${body}
 };
-return {applied: true, detail: '${target} is hooked'};`);
+return {applied: true, detail: '${target} is hooked'};`;
+  return wrap(
+    options.retry ? repeatUntilTargetExists(target, install) : install,
+  );
 }
 
 function generateObjectMethodHook(options: HookOptions): string {
-  const {target, owner, name} = requireObjectTarget(options);
+  const {target, owner, name} = requireTargetParts(options);
   const block = options.action === 'block';
   const call = block
     ? 'return undefined;'
-    : `const result = original.apply(this, arguments);
-      console.log('[Hook] ${target} returned', result);
-      return result;`;
+    : `const returned = original.apply(this, arguments);
+      console.log('[Hook] ${target} returned', returned);
+      return returned;`;
   const write = block
     ? 'return;'
     : `if (originalSet) {
         originalSet.call(this, value);
       }`;
-  return wrap(`
-const owner = ${owner};
-const descriptor = Object.getOwnPropertyDescriptor(owner, '${name}');
+  const install = `const container = ${owner};
+if (container === undefined || container === null) {
+  return {applied: false, detail: '${owner} does not exist yet'};
+}
+const descriptor = Object.getOwnPropertyDescriptor(container, '${name}');
 if (!descriptor) {
   return {applied: false, detail: '${target} is not an own property of ${owner}'};
 }
 if (typeof descriptor.value === 'function') {
   const original = descriptor.value;
-  Object.defineProperty(owner, '${name}', {
+  Object.defineProperty(container, '${name}', {
     value: function () {
       console.log('[Hook] ${target} called', {arguments: Array.prototype.slice.call(arguments), stack: new Error().stack});
 ${customCode(options)}      ${call}
@@ -186,7 +241,7 @@ ${customCode(options)}      ${call}
 if (descriptor.get || descriptor.set) {
   const originalGet = descriptor.get;
   const originalSet = descriptor.set;
-  Object.defineProperty(owner, '${name}', {
+  Object.defineProperty(container, '${name}', {
     get: function () {
       const value = originalGet ? originalGet.call(this) : undefined;
       console.log('[Hook] ${target} get', value);
@@ -201,7 +256,10 @@ ${customCode(options)}      ${write}
   });
   return {applied: true, detail: '${target} accessors are hooked'};
 }
-return {applied: false, detail: '${target} is neither a method nor an accessor'};`);
+return {applied: false, detail: '${target} is neither a method nor an accessor'};`;
+  return wrap(
+    options.retry ? repeatUntilTargetExists(target, install) : install,
+  );
 }
 
 function generateEvalHook(options: HookOptions): string {

@@ -45,6 +45,15 @@ persistent, where the target may only appear in a later document. The failure is
 reported in the tool response rather than as an exception, except for the
 non-persistent case, which throws instead of claiming a hook that does nothing.
 
+A persistent hook is injected at the start of a document, before the scripts of
+the page run, so the target it patches often does not exist yet: a page defines
+its own functions in its own scripts. The injected script therefore retries a
+bounded number of times (100 attempts, 50 ms apart) and hooks the target once it
+appears, which is what makes `persist` work for page-defined functions at all. A
+target that never appears is reported with a console warning instead of failing
+silently; measured on Chrome 156 against a local page, the warning arrives about
+five seconds after the document loads.
+
 Hook events share the console with the page's own messages. They are told apart
 by a `[Hook]` prefix, and a page that clears its console or floods it loses hook
 events with everything else.

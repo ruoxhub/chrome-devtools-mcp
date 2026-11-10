@@ -27,7 +27,7 @@ Types:
 
 With action "log" the page keeps working unchanged. With action "block" the hooked operation is stopped: a function or method returns undefined without being called, a storage or cookie write is dropped, and eval and the Function constructor throw.
 
-A hook applies to the current document, and is lost on navigation or reload unless persist is true.`,
+A hook applies to the current document, and is lost on navigation or reload unless persist is true. A persistent hook runs before the scripts of each document, so a target the page defines in its own scripts is hooked as soon as it appears; a target that never appears reports a warning in the console and stays inactive in that document.`,
   annotations: {
     category: ToolCategory.DEBUGGING,
     readOnlyHint: false,
@@ -79,7 +79,7 @@ A hook applies to the current document, and is lost on navigation or reload unle
       .boolean()
       .optional()
       .describe(
-        'Whether the hook is injected again into every document loaded afterwards, so it survives navigation and reload. The hook is applied to the current document either way. Defaults to false.',
+        'Whether the hook is injected again into every document loaded afterwards, so it survives navigation and reload. The hook is applied to the current document either way. A persistent hook runs before the scripts of a document, so a target that the page defines later is hooked once it appears, for up to about five seconds; a target that never appears reports a warning in the console. Defaults to false.',
       ),
   },
   blockedByDialog: false,

@@ -23,21 +23,48 @@ const FUNCTION_HOOK: HookOptions = {
 
 /**
  * Runs a generated script the way the page would, in a context that only has
- * the properties of `page` plus a console whose output is collected.
+ * the properties of `page` plus a console whose output is collected. Timers are
+ * fake, so a test drives the retries of a hook that waits for its target.
  */
 function runInPage(
   script: string,
   page: object,
-): {result: HookScriptResult; logs: unknown[][]} {
+): {
+  result: HookScriptResult;
+  logs: unknown[][];
+  tick: (times: number) => void;
+} {
   const logs: unknown[][] = [];
+  const intervals = new Map<number, () => void>();
+  let nextTimerId = 1;
+  let ticks = 0;
   const context = createContext({
     window: page,
     console: {
       log: (...args: unknown[]) => logs.push(args),
+      warn: (...args: unknown[]) => logs.push(args),
+    },
+    setInterval: (callback: () => void) => {
+      const id = nextTimerId++;
+      intervals.set(id, callback);
+      return id;
+    },
+    clearInterval: (id: number) => {
+      intervals.delete(id);
     },
   });
   const value = new Script(script).runInContext(context);
-  return {result: readHookScriptResult(value), logs};
+  return {
+    result: readHookScriptResult(value),
+    logs,
+    tick: (times: number) => {
+      for (; ticks < times; ticks++) {
+        for (const callback of [...intervals.values()]) {
+          callback();
+        }
+      }
+    },
+  };
 }
 
 describe('generateHookScript', () => {
@@ -79,6 +106,41 @@ describe('generateHookScript', () => {
       detail: 'window.fetch is hooked',
     });
     assert.strictEqual(page.fetch('a'), 'fetched a');
+  });
+
+  it('hooks a function the page defines after the script ran', () => {
+    const page: {fetch?: (input: string) => string} = {};
+    const {result, logs, tick} = runInPage(
+      generateHookScript({...FUNCTION_HOOK, retry: true}),
+      page,
+    );
+
+    assert.deepStrictEqual(result, {
+      applied: false,
+      detail: 'window.fetch is not a function',
+    });
+
+    page.fetch = (input: string) => `fetched ${input}`;
+    tick(1);
+    assert.strictEqual(page.fetch('a'), 'fetched a');
+    assert.deepStrictEqual(
+      logs.map(args => args[0]),
+      ['[Hook] window.fetch called', '[Hook] window.fetch returned'],
+    );
+  });
+
+  it('gives up and warns when the target never appears', () => {
+    const {result, logs, tick} = runInPage(
+      generateHookScript({...FUNCTION_HOOK, retry: true}),
+      {},
+    );
+
+    assert.strictEqual(result.applied, false);
+    tick(100);
+    tick(1);
+    assert.deepStrictEqual(logs.at(-1), [
+      '[Hook] could not hook window.fetch: window.fetch is not a function',
+    ]);
   });
 
   it('blocks a function without calling it', () => {

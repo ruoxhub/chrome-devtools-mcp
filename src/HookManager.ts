@@ -64,7 +64,12 @@ export class HookManager {
    * not patch the current document, so a failed hook is never registered.
    */
   async createHook(options: CreateHookOptions): Promise<HookInjection> {
-    const script = generateHookScript(options);
+    // A persistent script runs before the scripts of a document, so the target
+    // it hooks may not exist yet: keep looking for it instead of giving up.
+    const script = generateHookScript({
+      ...options,
+      retry: options.persist,
+    });
     const result = readHookScriptResult(await this.#page.evaluate(script));
     if (!result.applied && !options.persist) {
       throw new Error(`Failed to hook ${describe(options)}: ${result.detail}.`);

@@ -397,7 +397,7 @@ Types:
 
 With action "log" the page keeps working unchanged. With action "block" the hooked operation is stopped: a function or method returns undefined without being called, a storage or cookie write is dropped, and eval and the Function constructor throw.
 
-A hook applies to the current document, and is lost on navigation or reload unless persist is true.
+A hook applies to the current document, and is lost on navigation or reload unless persist is true. A persistent hook runs before the scripts of each document, so a target the page defines in its own scripts is hooked as soon as it appears; a target that never appears reports a warning in the console and stays inactive in that document.
 
 **Parameters:**
 
@@ -407,7 +407,7 @@ A hook applies to the current document, and is lost on navigation or reload unle
 - **customCode** (string) _(optional)_: JavaScript that runs in the page inside the hook on every hooked call, before the original operation, and with the same arguments. It can change the arguments or throw to skip that one call. Used by the "function", "object-method" and "eval" types and by the storage and cookie writes; ignored by storage and cookie reads.
 - **maxCalls** (integer) _(optional)_: Stops logging after this many calls. Only used by the "function" type and ignored by the others.
 - **minInterval** (integer) _(optional)_: Logs at most once per this many milliseconds. Only used by the "function" type and ignored by the others.
-- **persist** (boolean) _(optional)_: Whether the hook is injected again into every document loaded afterwards, so it survives navigation and reload. The hook is applied to the current document either way. Defaults to false.
+- **persist** (boolean) _(optional)_: Whether the hook is injected again into every document loaded afterwards, so it survives navigation and reload. The hook is applied to the current document either way. A persistent hook runs before the scripts of a document, so a target that the page defines later is hooked once it appears, for up to about five seconds; a target that never appears reports a warning in the console. Defaults to false.
 - **target** (string) _(optional)_: Dotted path to the hooked function or object member, for example "window.fetch" or "JSON.stringify". Required for the "function" and "object-method" types and ignored by the others.
 
 ---
