@@ -667,11 +667,12 @@ export function definePageTool<Schema extends ToolSchema>(
       },
       pageScoped: true,
       handler: async (request, response, context) => {
-        if (
+        const paused =
           defined.annotations.category !== ToolCategory.DEBUGGING &&
           defined.concurrency !== 'none' &&
-          request.page.getPausedState({}).paused
-        ) {
+          typeof request.page.getPausedState === 'function' &&
+          request.page.getPausedState({})?.paused === true;
+        if (paused) {
           throw new Error(
             'The page is paused. Call debugger_resume before retrying.',
           );

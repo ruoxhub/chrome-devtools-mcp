@@ -122,7 +122,7 @@ Evidence: merged via d266b2fe7b88497264125a516f5768c4ff8731cd; build passes (nod
 
 ## T4 — Tool definitions and registration
 
-- **status**: open
+- **status**: closed
 - **Branch**: `ticket/T4-debugger-tools`
 - **Blocked by**: T1, T2a, T2b, T3
 - **Write scopes**: `src/tools/debugger.ts`, `src/tools/tools.ts`,
@@ -140,6 +140,7 @@ Evidence: merged via d266b2fe7b88497264125a516f5768c4ff8731cd; build passes (nod
   - `createHandlerMocks()` tests verify exact arguments, error branches, and
     gating without a real browser.
   - `npm run build` and focused test pass.
+- **Evidence**: merged via T4 + T5 fix; build passes; debugger tool focused tests 33/33 pass; core unit tests 272/272 pass.
 
 ---
 
