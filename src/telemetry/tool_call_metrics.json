@@ -1409,5 +1409,279 @@
         "argType": "number"
       }
     ]
+  },
+  {
+    "name": "debugger_disable",
+    "args": [
+      {
+        "name": "page_id",
+        "argType": "number"
+      }
+    ]
+  },
+  {
+    "name": "debugger_evaluate",
+    "args": [
+      {
+        "name": "page_id",
+        "argType": "number"
+      },
+      {
+        "name": "call_frame_id_length",
+        "argType": "number"
+      },
+      {
+        "name": "expression_length",
+        "argType": "number"
+      },
+      {
+        "name": "return_by_value",
+        "argType": "boolean"
+      },
+      {
+        "name": "generate_preview",
+        "argType": "boolean"
+      },
+      {
+        "name": "throw_on_side_effect",
+        "argType": "boolean"
+      },
+      {
+        "name": "timeout",
+        "argType": "number"
+      }
+    ]
+  },
+  {
+    "name": "debugger_get_object_properties",
+    "args": [
+      {
+        "name": "page_id",
+        "argType": "number"
+      },
+      {
+        "name": "object_id_length",
+        "argType": "number"
+      },
+      {
+        "name": "own_properties",
+        "argType": "boolean"
+      },
+      {
+        "name": "generate_preview",
+        "argType": "boolean"
+      },
+      {
+        "name": "max_properties",
+        "argType": "number"
+      },
+      {
+        "name": "depth",
+        "argType": "number"
+      }
+    ]
+  },
+  {
+    "name": "debugger_get_paused_state",
+    "args": [
+      {
+        "name": "page_id",
+        "argType": "number"
+      },
+      {
+        "name": "include_scopes",
+        "argType": "boolean"
+      }
+    ]
+  },
+  {
+    "name": "debugger_list_breakpoints",
+    "args": [
+      {
+        "name": "page_id",
+        "argType": "number"
+      }
+    ]
+  },
+  {
+    "name": "debugger_pause",
+    "args": [
+      {
+        "name": "page_id",
+        "argType": "number"
+      },
+      {
+        "name": "timeout",
+        "argType": "number"
+      }
+    ]
+  },
+  {
+    "name": "debugger_remove_breakpoint",
+    "args": [
+      {
+        "name": "page_id",
+        "argType": "number"
+      },
+      {
+        "name": "breakpoint_id_length",
+        "argType": "number"
+      }
+    ]
+  },
+  {
+    "name": "debugger_resume",
+    "args": [
+      {
+        "name": "page_id",
+        "argType": "number"
+      }
+    ]
+  },
+  {
+    "name": "debugger_set_breakpoint",
+    "args": [
+      {
+        "name": "page_id",
+        "argType": "number"
+      },
+      {
+        "name": "url_length",
+        "argType": "number"
+      },
+      {
+        "name": "script_id_length",
+        "argType": "number"
+      },
+      {
+        "name": "line_number",
+        "argType": "number"
+      },
+      {
+        "name": "column_number",
+        "argType": "number"
+      },
+      {
+        "name": "condition_length",
+        "argType": "number"
+      }
+    ]
+  },
+  {
+    "name": "debugger_step",
+    "args": [
+      {
+        "name": "page_id",
+        "argType": "number"
+      },
+      {
+        "name": "direction",
+        "argType": "string"
+      },
+      {
+        "name": "timeout",
+        "argType": "number"
+      }
+    ]
+  },
+  {
+    "name": "debugger_wait_for_paused",
+    "args": [
+      {
+        "name": "page_id",
+        "argType": "number"
+      },
+      {
+        "name": "timeout",
+        "argType": "number"
+      }
+    ]
+  },
+  {
+    "name": "get_script_source",
+    "args": [
+      {
+        "name": "page_id",
+        "argType": "number"
+      },
+      {
+        "name": "script_id_length",
+        "argType": "number"
+      },
+      {
+        "name": "start_line",
+        "argType": "number"
+      },
+      {
+        "name": "end_line",
+        "argType": "number"
+      },
+      {
+        "name": "file_path_length",
+        "argType": "number"
+      }
+    ]
+  },
+  {
+    "name": "list_scripts",
+    "args": [
+      {
+        "name": "page_id",
+        "argType": "number"
+      },
+      {
+        "name": "url_filter_length",
+        "argType": "number"
+      },
+      {
+        "name": "max_scripts",
+        "argType": "number"
+      }
+    ]
+  },
+  {
+    "name": "search_in_scripts",
+    "args": [
+      {
+        "name": "page_id",
+        "argType": "number"
+      },
+      {
+        "name": "query_length",
+        "argType": "number"
+      },
+      {
+        "name": "case_sensitive",
+        "argType": "boolean"
+      },
+      {
+        "name": "is_regex",
+        "argType": "boolean"
+      },
+      {
+        "name": "url_filter_length",
+        "argType": "number"
+      },
+      {
+        "name": "context_lines",
+        "argType": "number"
+      },
+      {
+        "name": "max_matches",
+        "argType": "number"
+      },
+      {
+        "name": "max_scripts",
+        "argType": "number"
+      },
+      {
+        "name": "exclude_minified",
+        "argType": "boolean"
+      },
+      {
+        "name": "file_path_length",
+        "argType": "number"
+      }
+    ]
   }
 ]

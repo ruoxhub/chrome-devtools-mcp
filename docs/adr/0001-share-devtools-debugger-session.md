@@ -9,3 +9,5 @@ An independent CDP session was rejected because every enabled session can receiv
 ## Consequences
 
 Entering a Debug Session changes pause behavior for the page and must restore the previous non-pausing behavior when debugging is disabled or the page is disposed. Logpoints and pausing breakpoints must remain distinguishable even though they share the DevTools breakpoint manager.
+
+A real-Chrome test confirmed that DevTools keeps one breakpoint per normalized location: setting a logpoint and a pausing breakpoint on the same script line fails with `Debugger.setBreakpointByUrl: Breakpoint at specified location already exists`. Clients must place them on different lines; the two kinds of breakpoint can otherwise coexist in the same Debug Session.
