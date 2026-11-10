@@ -37,22 +37,22 @@ existing model's automatic resume.
 
 ## Tool-to-protocol mapping
 
-| Tool | CDP / DevTools API | Notes |
-| --- | --- | --- |
-| `debugger_set_breakpoint` | `Debugger.setBreakpointByUrl` or `Debugger.setBreakpoint`; or the universe breakpoint manager | `lineNumber` required, `url`/`urlRegex`/`scriptHash` or `location`, optional `columnNumber` and `condition`; returns `breakpointId` and resolved `locations`/`actualLocation`. |
-| `debugger_list_breakpoints` | Local breakpoint records; `Debugger.breakpointResolved` updates them | Reports requested and resolved positions. Logpoints are separate. |
-| `debugger_remove_breakpoint` | `Debugger.removeBreakpoint` | Takes `breakpointId`. |
-| `debugger_pause` | `Debugger.pause`, then `Debugger.paused` | `pause` stops on the next JavaScript statement, not immediately; therefore a bounded wait is required. |
-| `debugger_resume` | `Debugger.resume` | Optional `terminateOnResume`; invalidates the pause generation. |
-| `debugger_step` | `Debugger.stepInto` / `stepOver` / `stepOut` | No parameters; wait for the next pause, never return the previous snapshot. |
-| `debugger_disable` | `Debugger.setSkipAllPauses({skip:true})`, `Debugger.removeBreakpoint`, `Debugger.resume` | Restores the page's original non-pausing behavior and leaves logpoints intact. |
-| `debugger_wait_for_paused` | `Debugger.paused` event | `concurrency: 'none'`, default 10 s, maximum 30 s. |
-| `debugger_get_paused_state` | Cached `PausedEvent` / `DebuggerModel.debuggerPausedDetails()` | `reason`, `hitBreakpoints`, `callFrames`; scopes are opt-in. |
-| `debugger_evaluate` | `Debugger.evaluateOnCallFrame` | `callFrameId`, `expression`, `objectGroup`, `returnByValue`, `generatePreview`, `throwOnSideEffect`, `timeout`, `scopeNumber`; returns `result` and `exceptionDetails`. |
-| `debugger_get_object_properties` | `Runtime.getProperties` | `objectId`, `ownProperties`, `generatePreview`; bounded depth and count. |
-| `list_scripts` | `DebuggerModel.scripts()` / `Debugger.scriptParsed` | `scriptId`, `url`, `hash`, `sourceMapURL`, `hasSourceURL`, `isModule`, `length`, `startLine`/`startColumn`/`endLine`/`endColumn`, `embedderName`, `resolvedBreakpoints`. |
-| `get_script_source` | `Debugger.getScriptSource` / `Script.requestContentData()` | Returns `scriptSource`; line ranges and optional file export are applied locally. |
-| `search_in_scripts` | `Debugger.searchInContent` / `Script.searchInContent()` | `scriptId`, `query`, `caseSensitive`, `isRegex`; CDP returns `SearchMatch[]`. |
+| Tool                             | CDP / DevTools API                                                                            | Notes                                                                                                                                                                          |
+| -------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `debugger_set_breakpoint`        | `Debugger.setBreakpointByUrl` or `Debugger.setBreakpoint`; or the universe breakpoint manager | `lineNumber` required, `url`/`urlRegex`/`scriptHash` or `location`, optional `columnNumber` and `condition`; returns `breakpointId` and resolved `locations`/`actualLocation`. |
+| `debugger_list_breakpoints`      | Local breakpoint records; `Debugger.breakpointResolved` updates them                          | Reports requested and resolved positions. Logpoints are separate.                                                                                                              |
+| `debugger_remove_breakpoint`     | `Debugger.removeBreakpoint`                                                                   | Takes `breakpointId`.                                                                                                                                                          |
+| `debugger_pause`                 | `Debugger.pause`, then `Debugger.paused`                                                      | `pause` stops on the next JavaScript statement, not immediately; therefore a bounded wait is required.                                                                         |
+| `debugger_resume`                | `Debugger.resume`                                                                             | Optional `terminateOnResume`; invalidates the pause generation.                                                                                                                |
+| `debugger_step`                  | `Debugger.stepInto` / `stepOver` / `stepOut`                                                  | No parameters; wait for the next pause, never return the previous snapshot.                                                                                                    |
+| `debugger_disable`               | `Debugger.setSkipAllPauses({skip:true})`, `Debugger.removeBreakpoint`, `Debugger.resume`      | Restores the page's original non-pausing behavior and leaves logpoints intact.                                                                                                 |
+| `debugger_wait_for_paused`       | `Debugger.paused` event                                                                       | `concurrency: 'none'`, default 10 s, maximum 30 s.                                                                                                                             |
+| `debugger_get_paused_state`      | Cached `PausedEvent` / `DebuggerModel.debuggerPausedDetails()`                                | `reason`, `hitBreakpoints`, `callFrames`; scopes are opt-in.                                                                                                                   |
+| `debugger_evaluate`              | `Debugger.evaluateOnCallFrame`                                                                | `callFrameId`, `expression`, `objectGroup`, `returnByValue`, `generatePreview`, `throwOnSideEffect`, `timeout`, `scopeNumber`; returns `result` and `exceptionDetails`.        |
+| `debugger_get_object_properties` | `Runtime.getProperties`                                                                       | `objectId`, `ownProperties`, `generatePreview`; bounded depth and count.                                                                                                       |
+| `list_scripts`                   | `DebuggerModel.scripts()` / `Debugger.scriptParsed`                                           | `scriptId`, `url`, `hash`, `sourceMapURL`, `hasSourceURL`, `isModule`, `length`, `startLine`/`startColumn`/`endLine`/`endColumn`, `embedderName`, `resolvedBreakpoints`.       |
+| `get_script_source`              | `Debugger.getScriptSource` / `Script.requestContentData()`                                    | Returns `scriptSource`; line ranges and optional file export are applied locally.                                                                                              |
+| `search_in_scripts`              | `Debugger.searchInContent` / `Script.searchInContent()`                                       | `scriptId`, `query`, `caseSensitive`, `isRegex`; CDP returns `SearchMatch[]`.                                                                                                  |
 
 ## Coordinate convention
 

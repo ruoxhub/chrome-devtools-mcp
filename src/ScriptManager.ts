@@ -253,14 +253,25 @@ export class ScriptManager {
         break;
       }
       scannedScripts++;
-      const response = await this.#model.agent.invoke_searchInContent({
-        scriptId: script.scriptId,
-        query,
-        caseSensitive,
-        isRegex,
-      });
+      let response: {result: SearchMatch[]; getError(): string | undefined};
+      try {
+        response = await this.#model.agent.invoke_searchInContent({
+          scriptId: script.scriptId,
+          query,
+          caseSensitive,
+          isRegex,
+        });
+      } catch (error) {
+        if (isStaleScriptError(error)) {
+          continue;
+        }
+        throw error;
+      }
       const error = response.getError();
       if (error) {
+        if (isStaleScriptError(error)) {
+          continue;
+        }
         throw new Error(error);
       }
       const byLine = new Map<number, string>();
@@ -401,6 +412,16 @@ function createPattern(
     caseSensitive,
     false,
   );
+}
+
+/**
+ * A script reported by the debugger model can disappear between listing and
+ * searching, for example after a navigation. Searching the remaining scripts
+ * is still useful, so a stale id is skipped rather than failing the call.
+ */
+function isStaleScriptError(error: unknown): boolean {
+  const text = error instanceof Error ? error.message : String(error);
+  return /No script for id/i.test(text);
 }
 
 function isMinified(script: ScriptLike): boolean {

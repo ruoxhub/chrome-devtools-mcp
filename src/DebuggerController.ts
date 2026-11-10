@@ -834,6 +834,13 @@ export class DebuggerController {
     } catch (error: unknown) {
       return Promise.reject(error);
     }
+    // A page that is already paused has nothing to wait for: an agent can only
+    // observe the pause after the tool call that caused it returned. Callers
+    // that need the *next* pause pass afterGeneration and skip this path.
+    const paused = this.#paused;
+    if (paused && afterGeneration === undefined) {
+      return Promise.resolve(paused);
+    }
     return new Promise<PausedSnapshot>((resolve, reject) => {
       const waiter: Waiter = {
         resolve,

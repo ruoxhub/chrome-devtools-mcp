@@ -262,6 +262,26 @@ describe('DebuggerController', () => {
       controller.waitForPaused({timeout: 31_001}),
       /timeout=31001; exceeds maximum 30000ms/,
     );
+  });
+
+  it('waitForPaused() returns the current pause instead of timing out', async () => {
+    const {controller, session} = createFixture();
+    controller.enable();
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(1));
+
+    const snapshot = await controller.waitForPaused({timeout: 1});
+
+    assert.strictEqual(snapshot.generation, 1);
+  });
+
+  it('waitForPaused() still bounds the timeout when the page is not paused', async () => {
+    const {controller} = createFixture();
+    controller.enable();
+
+    await assert.rejects(
+      controller.waitForPaused({timeout: 31_001}),
+      /timeout=31001; exceeds maximum 30000ms/,
+    );
     await assert.rejects(
       controller.waitForPaused({timeout: 1}),
       /Timed out waiting for a pause after 1ms/,
@@ -271,7 +291,6 @@ describe('DebuggerController', () => {
   it('disable() and dispose() reject pending waiters and invalidate snapshots', async () => {
     const disabled = createFixture();
     disabled.controller.enable();
-    emitSessionEvent(disabled.session, 'Debugger.paused', pausedEvent(1));
     const waitingOnDisable = disabled.controller.waitForPaused();
     disabled.controller.disable();
 
@@ -280,7 +299,6 @@ describe('DebuggerController', () => {
 
     const disposed = createFixture();
     disposed.controller.enable();
-    emitSessionEvent(disposed.session, 'Debugger.paused', pausedEvent(1));
     const waitingOnDispose = disposed.controller.waitForPaused();
     disposed.controller.dispose();
 

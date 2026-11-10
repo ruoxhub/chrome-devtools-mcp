@@ -23,7 +23,7 @@ and must NOT be "fixed".
    `file:///...` URL string. Resolve a `file:` URL to a filesystem path with
    `fileURLToPath()` before writing; plain absolute paths pass through.
 4. `definePageTool` paused guard: remove the redundant `typeof ... ===
-   'function'` and optional chaining on a statically typed method; use a small
+'function'` and optional chaining on a statically typed method; use a small
    helper that reads the paused state defensively without violating the
    "already type-safe" rule. The guard must remain tolerant of mock pages that
    have no implementation, otherwise the full unit suite regresses.

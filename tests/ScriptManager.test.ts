@@ -594,6 +594,81 @@ describe('ScriptManager', () => {
     assert.strictEqual(result.truncated, true);
   });
 
+  it('skips a script that disappeared before the search ran', async () => {
+    const first = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/one.js',
+      length: 40,
+      endLine: 0,
+    });
+    const gone = createMockScript({
+      scriptId: createScriptId('2'),
+      url: 'https://example.test/two.js',
+      length: 40,
+      endLine: 0,
+    });
+    const third = createMockScript({
+      scriptId: createScriptId('3'),
+      url: 'https://example.test/three.js',
+      length: 40,
+      endLine: 0,
+    });
+    const {manager, searchInContent} = createManager([first, gone, third]);
+    searchInContent
+      .onFirstCall()
+      .resolves(
+        searchResponse([{lineNumber: 0, lineContent: 'const answer = 1;'}]),
+      );
+    searchInContent
+      .onSecondCall()
+      .resolves({result: [], getError: () => 'No script for id: 2'});
+    searchInContent
+      .onThirdCall()
+      .resolves(
+        searchResponse([{lineNumber: 0, lineContent: 'const answer = 3;'}]),
+      );
+
+    const result = await manager.searchInScripts({query: 'answer'});
+
+    assert.strictEqual(searchInContent.callCount, 3);
+    assert.strictEqual(result.matchCount, 2);
+    // scannedScripts counts attempted searches, including the one that skipped.
+    assert.strictEqual(result.scannedScripts, 3);
+  });
+
+  it('skips a script whose search rejects because it disappeared', async () => {
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: 40,
+      endLine: 0,
+    });
+    const {manager, searchInContent} = createManager([script]);
+    searchInContent.rejects(new Error('No script for id: 1'));
+
+    const result = await manager.searchInScripts({query: 'answer'});
+
+    assert.strictEqual(result.matchCount, 0);
+    assert.strictEqual(result.scannedScripts, 1);
+  });
+
+  it('propagates a search failure that is not a stale script', async () => {
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: 40,
+      endLine: 0,
+    });
+    const {manager} = createManager([script], {
+      search: {result: [], getError: () => 'Search is not supported'},
+    });
+
+    await assert.rejects(
+      manager.searchInScripts({query: 'answer'}),
+      /Search is not supported/,
+    );
+  });
+
   it('does not enable a Debug Session or create another CDP session', async () => {
     const script = createMockScript({
       scriptId: createScriptId('1'),

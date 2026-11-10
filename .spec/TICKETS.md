@@ -179,7 +179,15 @@ Evidence: merged via d266b2fe7b88497264125a516f5768c4ff8731cd; build passes (nod
     step/resume work, script search and source export are correct.
   - Fewer than a handful of slow browser runs; no fixed sleeps.
   - `npm run gen`, `npm run format`, and the full `npm run test` pass.
-- **Evidence**: merged via T6 merge; npm run gen regenerated 14 tools under Debugging (24 total); real-Chrome integration test 1/1 pass; core unit tests 158/158 pass.
+- **Evidence**: npm run gen regenerated 14 tools under Debugging (24 total);
+  real-Chrome integration test 1/1 pass; core unit tests 158/158 pass.
+- **Evidence (close-out)**: `tests/e2e/debugger.test.ts` was named in this
+  ticket's write scope but was missing at close. It now exists and passes
+  2/2 against a live browser (`CDMCP_E2E_BROWSER_URL`), covering CLI
+  `--help` registration of all 14 tools plus a pause/step/resume/
+  search/export round trip on a `data:text/html` fixture. The fixture's
+  breakpoint line is a 1-based _document_ line: inline scripts are
+  numbered from the start of the document.
 
 ---
 
@@ -203,6 +211,23 @@ formatter, debugger tools, createTools); broader non-e2e core 1785/1785
 pass excluding three pre-existing environment-dependent failures (daemon
 PID, oversized screenshot, stdin-EOF shutdown budget); `npm run gen` and
 `npm run format` ran with unrelated docs/.spec formatting restored.
+
+Close-out of the e2e work added two behavioral fixes that the real browser
+found, both with regression tests:
+
+- `waitForPaused()` returned a never-resolving waiter when the page was
+  already paused, so a follow-up call after `debugger_pause` timed out. The
+  already-paused shortcut now lives inside `#addWaiter` _after_ timeout
+  validation, so an invalid or exceeded timeout still rejects.
+- `searchInScripts()` threw when a script disappeared between listing and
+  searching; a stale `No script for id` result is now skipped, both when CDP
+  rejects and when it reports through `getError()`.
+
+Evidence: debugger suite 291/291 pass; e2e 2/2 pass; full non-e2e run
+1855 tests, 1848 pass, 3 fail — all three are the pre-existing
+environment-dependent failures listed above (daemon PID reap, oversized
+screenshot, and a flaky stdin-EOF shutdown), reproduced on the unmodified
+baseline.
 
 ---
 
