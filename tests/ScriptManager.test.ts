@@ -7,6 +7,7 @@
 import assert from 'node:assert';
 import fs from 'node:fs/promises';
 import {describe, it} from 'node:test';
+import {fileURLToPath, pathToFileURL} from 'node:url';
 
 import sinon from 'sinon';
 
@@ -295,6 +296,127 @@ describe('ScriptManager', () => {
     assert.strictEqual(searchResult.filePath, searchPath);
     assert.strictEqual(searchResult.matchCount, 1);
     assert.strictEqual('matches' in searchResult, false);
+  });
+
+  it('exports the full source and keeps the response bounded', async () => {
+    const source = Array.from({length: 120}, (_, i) => `line ${i + 1}`).join(
+      '\n',
+    );
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: source.length,
+      endLine: 119,
+    });
+    const {manager} = createManager([script], {
+      source: sourceResponse(source),
+    });
+    const writeFile = sinon.stub(fs, 'writeFile').resolves();
+
+    const result = await manager.getScriptSource({
+      scriptId: createScriptId('1'),
+      filePath: 'D:/tmp/full-source.js',
+    });
+
+    sinon.assert.calledOnceWithExactly(
+      writeFile,
+      'D:/tmp/full-source.js',
+      `${source}\n`,
+      'utf8',
+    );
+    assert.strictEqual(result.filePath, 'D:/tmp/full-source.js');
+    assert.strictEqual(result.startLine, 1);
+    assert.strictEqual(result.endLine, 120);
+    assert.strictEqual(result.totalLines, 120);
+    assert.strictEqual(result.byteLength, Buffer.byteLength(source, 'utf8'));
+    assert.deepStrictEqual(result.lines, [
+      {lineNumber: 1, text: 'line 1'},
+      {lineNumber: 2, text: 'line 2'},
+      {lineNumber: 3, text: 'line 3'},
+      {lineNumber: 4, text: 'line 4'},
+      {lineNumber: 5, text: 'line 5'},
+    ]);
+    assert.strictEqual(result.previewTruncated, true);
+  });
+
+  it('exports only the exact selected line range beyond the preview bound', async () => {
+    const source = Array.from({length: 1_010}, (_, i) => `line ${i + 1}`).join(
+      '\n',
+    );
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: source.length,
+      endLine: 1_009,
+    });
+    const {manager} = createManager([script], {
+      source: sourceResponse(source),
+    });
+    const selected = source.split('\n').slice(1_004, 1_006);
+    const writeFile = sinon.stub(fs, 'writeFile').resolves();
+
+    const result = await manager.getScriptSource({
+      scriptId: createScriptId('1'),
+      startLine: 1_005,
+      endLine: 1_006,
+      filePath: 'D:/tmp/selected-source.js',
+    });
+
+    sinon.assert.calledOnceWithExactly(
+      writeFile,
+      'D:/tmp/selected-source.js',
+      `${selected.join('\n')}\n`,
+      'utf8',
+    );
+    assert.strictEqual(result.startLine, 1_005);
+    assert.strictEqual(result.endLine, 1_006);
+    assert.strictEqual(result.totalLines, 1_010);
+    assert.deepStrictEqual(result.lines, [
+      {lineNumber: 1_005, text: 'line 1005'},
+      {lineNumber: 1_006, text: 'line 1006'},
+    ]);
+    assert.strictEqual(result.previewTruncated, false);
+  });
+
+  it('converts file: URLs to filesystem paths before writing exports', async () => {
+    const source = 'const answer = 42;';
+    const script = createMockScript({
+      scriptId: createScriptId('1'),
+      url: 'https://example.test/app.js',
+      length: source.length,
+      endLine: 0,
+    });
+    const {manager} = createManager([script], {
+      source: sourceResponse(source),
+      search: searchResponse([]),
+    });
+    const path = 'D:/tmp/script-export.js';
+    const fileUrl = pathToFileURL(path).href;
+    const writeFile = sinon.stub(fs, 'writeFile').resolves();
+
+    await manager.getScriptSource({
+      scriptId: createScriptId('1'),
+      filePath: fileUrl,
+    });
+    await manager.searchInScripts({
+      query: 'answer',
+      filePath: fileUrl,
+    });
+
+    sinon.assert.calledTwice(writeFile);
+    const expectedPath = fileURLToPath(fileUrl);
+    sinon.assert.calledWithExactly(
+      writeFile.firstCall,
+      expectedPath,
+      `${source}\n`,
+      'utf8',
+    );
+    sinon.assert.calledWithExactly(
+      writeFile.secondCall,
+      expectedPath,
+      '[]\n',
+      'utf8',
+    );
   });
 
   it('preserves the underlying filesystem error on source export', async () => {

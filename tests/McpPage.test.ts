@@ -5,6 +5,7 @@
  */
 
 import assert from 'node:assert';
+import {readFileSync} from 'node:fs';
 import {describe, it} from 'node:test';
 
 import sinon from 'sinon';
@@ -2931,6 +2932,38 @@ describe('McpPage debugger integration', () => {
     sinon.assert.notCalled(handler);
     sinon.assert.notCalled(page.pptrPage.screenshot);
     assert.strictEqual(mcpPage.getPausedState({}).paused, true);
+  });
+
+  it('reads the paused state defensively without redundant type checks', () => {
+    const source = readFileSync('src/tools/ToolDefinition.ts', 'utf8');
+
+    assert.match(source, /function isPagePaused\(/);
+    assert.doesNotMatch(source, /typeof request\.page\.getPausedState/);
+    assert.doesNotMatch(source, /getPausedState\(\{\}\)\?\./);
+  });
+
+  it('tolerates pages without a getPausedState implementation in the paused-page guard', async () => {
+    const page = createMockMcpPage();
+    Object.defineProperty(page, 'getPausedState', {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    });
+    const handler = sinon.stub().resolves();
+    const tool = createPageTool(
+      'take_snapshot',
+      ToolCategory.INPUT,
+      'page',
+      handler,
+    )(createMockParsedArguments());
+
+    await tool.handler(
+      {params: {}, page},
+      createMockMcpResponse(),
+      createMockMcpContext(),
+    );
+
+    sinon.assert.calledOnce(handler);
   });
 
   it('exempts debugger tools and concurrency: none waits from the paused-page guard', async () => {

@@ -533,6 +533,28 @@ describe('DebuggerController', () => {
     sinon.assert.calledTwice(session.off);
   });
 
+  it('disable() resumes a paused page before clearing the snapshot', () => {
+    const {controller, session, agent} = createFixture();
+    controller.enable();
+    emitSessionEvent(session, 'Debugger.paused', pausedEvent(1));
+
+    controller.disable();
+
+    sinon.assert.calledOnceWithExactly(agent.invoke_resume, {
+      terminateOnResume: false,
+    });
+    assert.strictEqual(controller.getPausedState().paused, false);
+  });
+
+  it('disable() does not resume a page that is not paused', () => {
+    const {controller, agent} = createFixture();
+    controller.enable();
+
+    controller.disable();
+
+    sinon.assert.notCalled(agent.invoke_resume);
+  });
+
   it('setBreakpoint() converts 1-based URL coordinates to 0-based', async () => {
     const {controller, agent} = createFixture();
     agent.invoke_setBreakpointByUrl.resolves(

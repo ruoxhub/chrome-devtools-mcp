@@ -957,6 +957,63 @@ describe('ToolHandler', () => {
     assert.strictEqual(jsonSchema.additionalProperties, false);
   });
 
+  it('applies a debugger tool schema refinement to registered input schema', () => {
+    const tool: ToolDefinition = {
+      name: 'debugger_set_breakpoint',
+      description: 'A debugger tool',
+      annotations: {
+        category: ToolCategory.DEBUGGING,
+        readOnlyHint: false,
+      },
+      schema: {
+        url: zod.string().optional(),
+        scriptId: zod.string().optional(),
+        lineNumber: zod.number().int().min(1),
+      },
+      blockedByDialog: false,
+      concurrency: 'exclusive',
+      verifyFilesSchema: {},
+      refine: schema =>
+        schema.refine(
+          params =>
+            (params.url === undefined) !== (params.scriptId === undefined),
+          'Provide exactly one of url or scriptId.',
+        ),
+      handler: async () => {
+        return;
+      },
+    };
+    const mockContext = createMockMcpContext();
+    const toolHandler = new ToolHandler(
+      tool,
+      parseConfig(),
+      async () => mockContext,
+      sinon.spy(),
+    );
+
+    assert.strictEqual(
+      toolHandler.registeredInputSchema.safeParse({
+        lineNumber: 7,
+      }).success,
+      false,
+    );
+    assert.strictEqual(
+      toolHandler.registeredInputSchema.safeParse({
+        url: 'app.js',
+        scriptId: '1',
+        lineNumber: 7,
+      }).success,
+      false,
+    );
+    assert.strictEqual(
+      toolHandler.registeredInputSchema.safeParse({
+        url: 'app.js',
+        lineNumber: 7,
+      }).success,
+      true,
+    );
+  });
+
   it('sets disabled to true and returns disabled reason when category is disabled', async () => {
     let handlerCalled = false;
     const tool: ToolDefinition = {

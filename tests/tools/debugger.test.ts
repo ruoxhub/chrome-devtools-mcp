@@ -5,6 +5,7 @@
  */
 
 import assert from 'node:assert';
+import {readFileSync} from 'node:fs';
 import {describe, it} from 'node:test';
 
 import sinon from 'sinon';
@@ -31,7 +32,7 @@ import type {DevTools} from '../../src/third_party/index.js';
 import {zod} from '../../src/third_party/index.js';
 import {createHandlerMocks, createMockParsedArguments} from '../mocks.js';
 
-const TOOL_NAMES = [
+const TOOL_NAMES: readonly string[] = [
   'debugger_set_breakpoint',
   'debugger_list_breakpoints',
   'debugger_remove_breakpoint',
@@ -46,9 +47,9 @@ const TOOL_NAMES = [
   'list_scripts',
   'get_script_source',
   'search_in_scripts',
-] as const;
+];
 
-const MUTATING_TOOL_NAMES = [
+const MUTATING_TOOL_NAMES: readonly string[] = [
   'debugger_set_breakpoint',
   'debugger_remove_breakpoint',
   'debugger_pause',
@@ -62,7 +63,7 @@ const MUTATING_TOOL_NAMES = [
   'search_in_scripts',
   'debugger_list_breakpoints',
   'debugger_get_paused_state',
-] as const;
+];
 
 const BREAKPOINT: BreakpointRecord = {
   breakpointId: 'bp-1',
@@ -206,6 +207,24 @@ function toolNames(): string[] {
 }
 
 describe('debugger tools', () => {
+  it('imports shared debugger bounds instead of duplicating them', () => {
+    const source = readFileSync('src/tools/debugger.ts', 'utf8');
+
+    assert.match(source, /from '\.\.\/DebuggerController\.js'/);
+    assert.match(source, /from '\.\.\/ScriptManager\.js'/);
+    assert.doesNotMatch(
+      source,
+      /const (DEFAULT_WAIT_TIMEOUT|MAX_WAIT_TIMEOUT|MAX_CONTEXT_LINES|MAX_BOUND) =/,
+    );
+  });
+
+  it('declares tool name lists with explicit readonly string[] types', () => {
+    assert.deepStrictEqual(
+      [TOOL_NAMES, MUTATING_TOOL_NAMES].map(names => names.length),
+      [14, 13],
+    );
+  });
+
   it('defines all 14 tools with exact names and unique names', () => {
     assert.deepStrictEqual([...toolNames()].sort(), [...TOOL_NAMES].sort());
     const names = createTools(createMockParsedArguments()).map(t => t.name);
@@ -293,24 +312,6 @@ describe('debugger tools', () => {
       );
     });
 
-    it('rejects a request with both or neither location field', async () => {
-      const {page, context, response, args} = createHandlerMocks();
-      const definition = tool('debugger_set_breakpoint')(args);
-      await assert.rejects(
-        definition.handler({params: {lineNumber: 7}, page}, response, context),
-        /exactly one of url or scriptId/,
-      );
-      await assert.rejects(
-        definition.handler(
-          {params: {url: 'u', scriptId: '1', lineNumber: 7}, page},
-          response,
-          context,
-        ),
-        /exactly one of url or scriptId/,
-      );
-      sinon.assert.notCalled(page.setBreakpoint);
-    });
-
     it('passes scriptId without url', async () => {
       const {page, context, response, args} = createHandlerMocks();
       page.setBreakpoint.resolves(BREAKPOINT);
@@ -330,7 +331,10 @@ describe('debugger tools', () => {
 
     it('accepts either a URL or a script ID with the line number', () => {
       const args = createMockParsedArguments({pageIdRouting: false});
-      const schema = zod.object(tool('debugger_set_breakpoint')(args).schema);
+      const definition = tool('debugger_set_breakpoint')(args);
+      const refineSchema = definition.refine;
+      assert.ok(refineSchema);
+      const schema = refineSchema(zod.object(definition.schema).strict());
       assert.strictEqual(
         schema.safeParse({url: 'u', lineNumber: 7}).success,
         true,
@@ -340,6 +344,19 @@ describe('debugger tools', () => {
         true,
       );
       assert.strictEqual(schema.safeParse({url: 'u'}).success, false);
+    });
+
+    it('rejects both or neither location field in the schema', () => {
+      const args = createMockParsedArguments({pageIdRouting: false});
+      const definition = tool('debugger_set_breakpoint')(args);
+      const refineSchema = definition.refine;
+      assert.ok(refineSchema);
+      const schema = refineSchema(zod.object(definition.schema).strict());
+      assert.strictEqual(schema.safeParse({lineNumber: 7}).success, false);
+      assert.strictEqual(
+        schema.safeParse({url: 'u', scriptId: '1', lineNumber: 7}).success,
+        false,
+      );
     });
 
     it('rejects 0-based or fractional coordinates in the schema', () => {
